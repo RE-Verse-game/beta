@@ -1,0 +1,23 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Node (only used for the optional engine.test.js sanity run)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Logs / temp
+*.log
+tmp/
+.cache/
+
+# Local env / secrets — never commit
+*.env
+.env
+.env.*
+!*.env.example
