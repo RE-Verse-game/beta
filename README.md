@@ -41,11 +41,17 @@ the full prototype (a faithful JS port of the Python/C# core).
 
 ## Play
 
-**→ [re-verse-game.github.io/beta](https://re-verse-game.github.io/beta/)**
+**→ [re-verse-game.github.io/beta](https://re-verse-game.github.io/beta/)** — the
+launcher lets you pick how to play:
 
-Prologue → **Enter the Continuum** → **Chronos Jump** into an era → pick a
-choice → watch 2226's metric &amp; faction bars rewrite → chase the ★ Solar
-Utopia victory.
+| Mode | Link | Notes |
+| --- | --- | --- |
+| **2D Chronos Console** | [`/2d/`](https://re-verse-game.github.io/beta/2d/) | Full loop, instant load, works on mobile |
+| **3D First-Person** | [`/3d/`](https://re-verse-game.github.io/beta/3d/) | Unity WebGL — walk Kyiv-2226, press **E** at the terminal (desktop GPU recommended) |
+
+Both run the same shared engine. The 2D console: Prologue → **Enter the
+Continuum** → **Chronos Jump** into an era → pick a choice → watch 2226's metric
+&amp; faction bars rewrite → chase the ★ Solar Utopia victory.
 
 | Action | What it does |
 | --- | --- |
@@ -71,25 +77,32 @@ It's a static site — no server or build needed.
 ```bash
 git clone https://github.com/RE-Verse-game/beta.git
 cd beta
-xdg-open index.html      # Linux  (or just double-click index.html)
+xdg-open index.html      # Linux  (or just double-click index.html — opens the launcher)
 ```
 
 Optional sanity checks (Node):
 
 ```bash
-node engine.test.js      # engine parity checks mirroring the Python invariants
+node 2d/engine.test.js   # engine parity checks mirroring the Python invariants
 ```
 
 ## What's inside
 
 ```
-index.html        # the game shell (prologue, metrics, factions, victory)
-style.css         # Ukrainian solarpunk / cyberpunk theme
-engine.js         # pure decision engine — deterministic, no DOM
-app.js            # DOM controller wiring the engine to the UI
-engine.test.js    # Node sanity checks
-media/            # key art (hero, poster, emblem)
+index.html          # launcher — choose 2D or 3D
+2d/                 # 2D Chronos console
+  index.html        #   game shell (prologue, metrics, factions, victory)
+  style.css         #   Ukrainian solarpunk / cyberpunk theme
+  engine.js         #   pure decision engine — deterministic, no DOM
+  app.js            #   DOM controller wiring the engine to the UI
+  engine.test.js    #   Node sanity checks
+3d/                 # 3D first-person (Unity WebGL build — see 3d/README.md)
+media/              # key art (hero, poster, emblem)
 ```
+
+The 3D slice ships as a Unity **WebGL** export dropped into `3d/`. To build and
+add it, follow **[`3d/README.md`](3d/README.md)** — the key gotcha is setting
+Unity's **Compression Format → Disabled** so it serves from GitHub Pages.
 
 ## Changelog
 

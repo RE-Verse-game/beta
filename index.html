@@ -3,83 +3,95 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RE:Verse — Chronos Console (beta v0.0.1)</title>
-  <meta name="description" content="RE:Verse — rewrite the universe, one choice at a time. A Ukrainian solarpunk/cyberpunk time-travel loop powered by an embedded Chronos-LLM. Play in the browser." />
+  <title>RE:Verse — Play (beta v0.0.1)</title>
+  <meta name="description" content="RE:Verse — rewrite the universe, one choice at a time. Play the Chronos loop in your browser: the 2D console or the 3D first-person slice." />
 
   <!-- Social preview -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="RE:Verse — Chronos Console" />
-  <meta property="og:description" content="Rewrite the universe, one choice at a time. Jump into the past, make Butterfly-Effect choices, watch 2226 rewrite itself." />
+  <meta property="og:title" content="RE:Verse — Play in the browser" />
+  <meta property="og:description" content="Rewrite the universe, one choice at a time. Choose the 2D Chronos console or the 3D first-person slice." />
   <meta property="og:image" content="media/hero.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="media/hero.png" />
-
   <link rel="icon" type="image/png" href="media/avatar.png" />
-  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    :root {
+      --bg: #0a0e17; --panel: rgba(14, 20, 33, .82); --line: #1e2a44;
+      --gold: #f5b942; --cyan: #35d0d6; --ink: #dfe7f2; --muted: #8ea0bd;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--ink); background: var(--bg);
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 4vh 5vw; gap: 2rem;
+      background-image:
+        linear-gradient(180deg, rgba(10,14,23,.55), rgba(10,14,23,.92)),
+        url("media/hero.png");
+      background-size: cover; background-position: center;
+    }
+    header { text-align: center; }
+    .logo { font-size: clamp(2.4rem, 7vw, 4.2rem); font-weight: 800; letter-spacing: .06em; margin: 0; }
+    .logo span { color: var(--gold); }
+    .tagline { color: var(--cyan); letter-spacing: .28em; text-transform: uppercase;
+      font-size: clamp(.62rem, 1.6vw, .8rem); margin: .4rem 0 0; }
+    .lede { color: var(--muted); max-width: 46ch; margin: .9rem auto 0; line-height: 1.5; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.2rem; width: 100%; max-width: 760px; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+      padding: 1.6rem 1.5rem; text-decoration: none; color: inherit;
+      display: flex; flex-direction: column; gap: .5rem; backdrop-filter: blur(6px);
+      transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+    .card:hover { transform: translateY(-4px); border-color: var(--gold);
+      box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+    .card .icon { font-size: 2rem; }
+    .card h2 { margin: .1rem 0 0; font-size: 1.35rem; }
+    .card p { margin: 0; color: var(--muted); line-height: 1.45; font-size: .92rem; }
+    .card .cta { margin-top: .7rem; font-weight: 700; color: var(--gold); letter-spacing: .04em; }
+    .card.d3 .cta { color: var(--cyan); }
+    .badge { align-self: flex-start; font-size: .68rem; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--muted); border: 1px solid var(--line);
+      border-radius: 999px; padding: .18rem .6rem; }
+    footer { color: var(--muted); font-size: .8rem; text-align: center; line-height: 1.6; }
+    footer a { color: var(--cyan); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
-  <div id="scanlines" aria-hidden="true"></div>
+  <header>
+    <h1 class="logo">RE<span>:</span>VERSE</h1>
+    <p class="tagline">Chronos Console — public beta v0.0.1</p>
+    <p class="lede">Kyiv, 2226. Jump into the past, make Butterfly-Effect choices,
+      and watch the present rewrite itself. Pick how you want to play.</p>
+  </header>
 
-  <!-- Prologue overlay -->
-  <div id="prologue" class="overlay">
-    <div class="panel prologue-panel">
-      <h1 class="logo">RE<span>:</span>VERSE</h1>
-      <p class="tagline">Chronos Console — vertical slice</p>
-      <pre id="prologue-text" class="prologue-text"></pre>
-      <button id="start-btn" class="btn btn-primary btn-lg">▶ Enter the Continuum</button>
-    </div>
-  </div>
+  <main class="cards">
+    <a class="card d2" href="2d/">
+      <span class="icon">🖥️</span>
+      <span class="badge">instant · no download</span>
+      <h2>2D Chronos Console</h2>
+      <p>The full decision loop with metric &amp; faction bars, quests, save/load.
+         Loads in a second — works great on mobile.</p>
+      <span class="cta">▶ Play the console →</span>
+    </a>
 
-  <!-- Victory overlay -->
-  <div id="victory" class="overlay hidden">
-    <div class="panel victory-panel">
-      <div class="victory-badge">★</div>
-      <h2 id="victory-title">SOLAR UTOPIA</h2>
-      <p id="victory-blurb"></p>
-      <p class="victory-note">You rewrote the past and reassembled the ideal future.</p>
-      <button id="victory-close" class="btn btn-primary">Continue tampering</button>
-    </div>
-  </div>
-
-  <main id="game" class="hidden">
-    <header class="topbar">
-      <div class="brand"><span class="logo-sm">RE:VERSE</span><span class="sub">KYIV · 2226</span></div>
-      <div id="archetype" class="archetype">—</div>
-      <div class="charge">
-        <span class="charge-label">CHRONO-CHARGE</span>
-        <div class="charge-track"><div id="charge-fill" class="charge-fill"></div></div>
-        <span id="charge-num" class="charge-num">120/120</span>
-      </div>
-    </header>
-
-    <p id="narration" class="narration"></p>
-
-    <section class="board">
-      <div class="card">
-        <h3>World Metrics</h3>
-        <div id="metrics"></div>
-      </div>
-      <div class="card">
-        <h3>Factions</h3>
-        <div id="factions"></div>
-        <p id="patron" class="patron"></p>
-      </div>
-    </section>
-
-    <nav class="actions">
-      <button id="act-jump" class="btn btn-primary">⟲ Chronos Jump</button>
-      <button id="act-quest" class="btn">◈ Quest</button>
-      <button id="act-timeline" class="btn">≡ Timeline</button>
-      <button id="act-rewind" class="btn">↶ Rewind</button>
-      <button id="act-reset" class="btn">⟳ Reset</button>
-      <button id="act-save" class="btn">▼ Save</button>
-      <button id="act-load" class="btn">▲ Load</button>
-    </nav>
-
-    <section id="drawer" class="drawer hidden"></section>
+    <a class="card d3" href="3d/">
+      <span class="icon">🎮</span>
+      <span class="badge">heavier · desktop GPU recommended</span>
+      <h2>3D First-Person</h2>
+      <p>Walk a greybox Kyiv-2226 in first person, approach the Chronos Terminal,
+         press <b>E</b> and rewrite the timeline. Unity WebGL build.</p>
+      <span class="cta">▶ Enter 3D →</span>
+    </a>
   </main>
 
-  <script src="engine.js"></script>
-  <script src="app.js"></script>
+  <footer>
+    Same engine, three surfaces · <a href="https://github.com/RE-Verse-game/beta">source &amp; changelog on GitHub</a><br />
+    © 2026 Alex Korchenko · Business Source License 1.1
+  </footer>
 </body>
 </html>
