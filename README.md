@@ -64,6 +64,21 @@ Continuum** → **Chronos Jump** into an era → pick a choice → watch 2226's 
 
 ## Screenshots
 
+**The launcher** — pick how you play (2D console or 3D first-person):
+
+<p align="center">
+  <img src="media/screenshot-launcher.png" alt="RE:Verse launcher — choose 2D or 3D" width="90%" />
+</p>
+
+**3D first-person slice** — walk a greybox Kyiv-2226, live HUD (archetype,
+chrono-charge, metrics, factions), approach the Chronos Terminal and press **E**:
+
+<p align="center">
+  <img src="media/screenshot-3d.png" alt="RE:Verse 3D first-person gameplay" width="90%" />
+</p>
+
+**Key art:**
+
 <p align="center">
   <img src="media/poster.png" alt="RE:Verse poster" width="42%" />
   &nbsp;&nbsp;
