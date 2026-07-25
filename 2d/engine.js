@@ -12,9 +12,11 @@
 (function (root) {
   "use strict";
 
-  // ---- world_state -------------------------------------------------------
+  // ---- world_state (schema v2) -------------------------------------------
+  const SCHEMA_VERSION = 2;
   const METRICS = ["ai_autonomy", "corruption", "prosperity", "freedom", "ecology", "stability"];
   const FACTIONS = ["clean", "synths", "looped"];
+  const REGIONS = ["kyiv", "carpathians", "odesa"];
 
   function baseline() {
     return {
@@ -22,11 +24,13 @@
       ai_autonomy: 80, corruption: 10, prosperity: 85,
       freedom: 75, ecology: 80, stability: 80,
       factions: { clean: 60, synths: 55, looped: 20 },
+      regions: { kyiv: 85, carpathians: 75, odesa: 70 },
       flags: new Set(),
     };
   }
 
   const clampVal = (v) => Math.max(0, Math.min(100, v));
+  const floorDiv = (a, b) => Math.floor(a / b); // matches Python `//` on negatives
 
   // ---- eras (jump targets + Butterfly-Effect choices) --------------------
   const ERAS = [2058, 2090, 2150, 2180];
@@ -147,8 +151,23 @@
     ],
   };
 
+  // The present — actions taken here enter the choice-log but are not jumps.
+  const PRESENT = 2226;
+
+  // Lay low — present-day action: call in Mesh favours to shed Temporal Heat.
+  const LAY_LOW = {
+    id: "lay_low", era: PRESENT, title: "Lay low",
+    description: "Go dark in the Mesh until the predictive sweeps move on.",
+    deltas: {}, faction_deltas: {}, flags: [],
+    narrative: "You vanish into favour-debt and dead zones. The sweeps pass over.",
+    requires: [], blocked_by: [],
+  };
+
   const CHOICE_BY_ID = {};
   for (const y of ERAS) for (const c of CHOICES[y]) CHOICE_BY_ID[c.id] = c;
+  CHOICE_BY_ID[LAY_LOW.id] = LAY_LOW;
+
+  const jumps = (timeline) => timeline.filter((c) => c.era !== PRESENT);
 
   function accumulatedFlags(timeline) {
     const flags = new Set();
@@ -181,8 +200,9 @@
         ws.factions[f] = (ws.factions[f] || 0) + d;
       for (const fl of c.flags) ws.flags.add(fl);
     }
-    // Butterfly Effect: seeded drift scaled by how much the timeline was touched.
-    const n = timeline.length;
+    // Butterfly Effect: seeded drift scaled by how much the timeline was
+    // touched. Present-day actions (lay low) never rewrite the world.
+    const n = jumps(timeline).length;
     const rng = mulberry32(seed + 1000 * n);
     for (const m of METRICS) {
       const drift = n === 0 ? 0 : Math.floor(rng() * (2 * n + 1)) - n; // [-n, n]
@@ -190,7 +210,25 @@
     }
     for (const m of METRICS) ws[m] = clampVal(ws[m]);
     for (const f of Object.keys(ws.factions)) ws.factions[f] = clampVal(ws.factions[f]);
+    rippleRegions(ws);
+    for (const r of Object.keys(ws.regions)) ws.regions[r] = clampVal(ws.regions[r]);
     return ws;
+  }
+
+  // Region-level ripples (schema v2) — integer floor-division only, so values
+  // stay identical to reverse/simulator.py given the same (drifted) metrics.
+  function rippleRegions(ws) {
+    const f = ws.flags;
+    ws.regions.kyiv = 85 + floorDiv(ws.prosperity - 85, 2) + floorDiv(ws.stability - 80, 3)
+      + floorDiv(ws.ai_autonomy - 80, 4);
+    ws.regions.carpathians = 75 + floorDiv(ws.ecology - 80, 2)
+      + (f.has("biohacking_open") ? 8 : 0)
+      + (f.has("looped_enfranchised") ? 4 : 0)
+      - (f.has("looped_purged") ? 6 : 0);
+    ws.regions.odesa = 70 + floorDiv(ws.prosperity - 85, 3) - floorDiv(ws.corruption - 10, 2)
+      + (f.has("energy_commons") ? 5 : 0)
+      - (f.has("energy_cartel") ? 10 : 0)
+      + (f.has("orbital_solar") ? 4 : 0);
   }
 
   function archetype(ws) {
@@ -216,6 +254,73 @@
   const jumpCost = (n) => BASE_COST + STRAIN * n;
   const energy = (n) => MAX_ENERGY - (BASE_COST * n + (STRAIN * n * (n - 1)) / 2);
   const canJump = (n) => energy(n) >= jumpCost(n);
+
+  // ---- temporal (heat + spacetime stability, mirrors reverse/temporal.py) --
+  const HEAT_TIERS = [
+    [38, "Liquidation Order"], [26, "Hunted"], [16, "Flagged"], [8, "Logged"], [0, "Unnoticed"],
+  ];
+  const HUNTED_AT = 26;
+  const STABILITY_BANDS = [
+    [80, "coherent"], [55, "strained"], [30, "fraying"], [0, "critical anomaly"],
+  ];
+  const BASE_STRAIN = 5, REVISIT_STRAIN = 3, LAY_LOW_RELIEF = 12;
+
+  function audacity(choice) {
+    let a = 0;
+    for (const d of Object.values(choice.deltas)) a += Math.abs(d);
+    for (const d of Object.values(choice.faction_deltas)) a += Math.abs(d);
+    return a;
+  }
+  function heat(timeline) {
+    let score = 0;
+    for (const c of jumps(timeline)) score += 4 + floorDiv(audacity(c), 15);
+    if (accumulatedFlags(timeline).has("precrime_abolished")) score = floorDiv(score, 2);
+    const laidLow = timeline.length - jumps(timeline).length;
+    return Math.max(0, score - LAY_LOW_RELIEF * laidLow);
+  }
+  function heatTier(score) {
+    for (const [t, label] of HEAT_TIERS) if (score >= t) return label;
+    return "Unnoticed";
+  }
+  const isHunted = (timeline) => heat(timeline) >= HUNTED_AT;
+  function stability(timeline) {
+    let strain = 0;
+    const visits = {};
+    for (const c of jumps(timeline)) {
+      strain += BASE_STRAIN + REVISIT_STRAIN * (visits[c.era] || 0);
+      visits[c.era] = (visits[c.era] || 0) + 1;
+    }
+    return Math.max(0, 100 - strain);
+  }
+  function stabilityBand(value) {
+    for (const [t, label] of STABILITY_BANDS) if (value >= t) return label;
+    return "critical anomaly";
+  }
+
+  // ---- trust (Social Trust Mesh, mirrors reverse/trust.py) -----------------
+  const BASE_TRUST = 60, JUMP_EROSION = 2, LAY_LOW_COST = 8;
+  const TRUST_BANDS = [
+    [80, "Exemplar"], [55, "Trusted"], [35, "Watched"], [15, "Suspect"], [0, "Pariah"],
+  ];
+
+  function civicValue(choice) {
+    let v = 0;
+    for (const [m, d] of Object.entries(choice.deltas)) v += m === "corruption" ? -d : d;
+    return v;
+  }
+  function trustMesh(timeline) {
+    let score = BASE_TRUST;
+    for (const c of timeline) {
+      if (c.era === PRESENT) score -= LAY_LOW_COST;
+      else score += floorDiv(civicValue(c), 10) - JUMP_EROSION;
+    }
+    return clampVal(score);
+  }
+  function trustBand(score) {
+    for (const [t, label] of TRUST_BANDS) if (score >= t) return label;
+    return "Pariah";
+  }
+  const canLayLow = (timeline) => trustMesh(timeline) >= LAY_LOW_COST;
 
   // ---- factions ----------------------------------------------------------
   const STANDINGS = [
@@ -309,10 +414,13 @@
   ];
 
   const api = {
-    METRICS, FACTIONS, ERAS, CHOICES, CHOICE_BY_ID,
+    SCHEMA_VERSION, METRICS, FACTIONS, REGIONS, ERAS, CHOICES, CHOICE_BY_ID,
+    PRESENT, LAY_LOW, jumps,
     baseline, availableChoices, accumulatedFlags,
     simulate, archetype,
     MAX_ENERGY, jumpCost, energy, canJump,
+    audacity, heat, heatTier, isHunted, HUNTED_AT, stability, stabilityBand,
+    BASE_TRUST, LAY_LOW_COST, civicValue, trustMesh, trustBand, canLayLow,
     reputation, standing, patronFaction, dominantBloc, blocEpithet, FACTION_FLAVOR,
     generateQuest, ENDINGS, flavoredEnding, isVictory, narrate, PROLOGUE,
   };

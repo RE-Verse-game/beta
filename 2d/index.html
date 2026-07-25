@@ -3,18 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RE:Verse — Chronos Console (beta v0.0.1)</title>
-  <meta name="description" content="RE:Verse — rewrite the universe, one choice at a time. A Ukrainian solarpunk/cyberpunk time-travel loop powered by an embedded Chronos-LLM. Play in the browser." />
-
-  <!-- Social preview -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="RE:Verse — Chronos Console" />
-  <meta property="og:description" content="Rewrite the universe, one choice at a time. Jump into the past, make Butterfly-Effect choices, watch 2226 rewrite itself." />
-  <meta property="og:image" content="../media/hero.png" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="../media/hero.png" />
-
-  <link rel="icon" type="image/png" href="../media/avatar.png" />
+  <title>RE:Verse — Chronos Console</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -58,6 +47,9 @@
       <div class="card">
         <h3>World Metrics</h3>
         <div id="metrics"></div>
+        <h3>Regions</h3>
+        <div id="regions"></div>
+        <p id="temporal" class="patron"></p>
       </div>
       <div class="card">
         <h3>Factions</h3>
@@ -69,6 +61,7 @@
     <nav class="actions">
       <button id="act-jump" class="btn btn-primary">⟲ Chronos Jump</button>
       <button id="act-quest" class="btn">◈ Quest</button>
+      <button id="act-laylow" class="btn">◌ Lay low</button>
       <button id="act-timeline" class="btn">≡ Timeline</button>
       <button id="act-rewind" class="btn">↶ Rewind</button>
       <button id="act-reset" class="btn">⟳ Reset</button>
