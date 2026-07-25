@@ -3,6 +3,24 @@
 All notable changes to the RE:Verse public browser beta are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.0.2] — 2026-07-25
+
+M2 core-systems sync — the public 2D console now carries the same engine as the
+main repo (Python 66 / JS 17 tests, value-identical).
+
+### Added
+- **Social Trust Mesh** — a 0–100 reputation rating (Exemplar → Pariah) as the
+  post-scarcity currency; rises with the civic value of your choices, erodes
+  with each jump.
+- **Temporal Heat** — predictive-security score with tiers (Unnoticed →
+  Liquidation Order); loud edits summon the Quantum Liquidators.
+- **Lay low** — spend Trust Mesh to shed Heat and clear your name; a present-day
+  action logged for save/replay, it never rewrites the world.
+- **Spacetime stability** — each jump strains the continuum (revisiting an era
+  strains it harder), with bands coherent → critical anomaly.
+- **Regions (schema v2)** — live vitality bars for Kyiv / Carpathians / Odesa,
+  rippled deterministically from world metrics and timeline flags.
+
 ## [v0.0.1] — 2026-07-24
 
 First **public browser beta** of RE:Verse — the Chronos core loop, playable by

@@ -36,7 +36,7 @@
     $("archetype").textContent = name;
     $("narration").textContent = E.narrate(world);
 
-    const n = timeline.length;
+    const n = E.jumps(timeline).length; // lay-low entries cost no charge
     const charge = E.energy(n);
     $("charge-fill").style.width = (charge / E.MAX_ENERGY) * 100 + "%";
     $("charge-num").textContent = charge + "/" + E.MAX_ENERGY;
@@ -44,6 +44,25 @@
     const mBox = $("metrics");
     mBox.innerHTML = "";
     for (const m of E.METRICS) mBox.appendChild(bar(m, world[m], metricColor(m, world[m])));
+
+    const rBox = $("regions");
+    rBox.innerHTML = "";
+    for (const r of E.REGIONS)
+      rBox.appendChild(bar(r, world.regions[r], metricColor(r, world.regions[r])));
+
+    const space = E.stability(timeline), ht = E.heat(timeline);
+    const tr = E.trustMesh(timeline);
+    $("temporal").innerHTML =
+      `◈ Spacetime: <b>${space}</b> (${E.stabilityBand(space)}) · ` +
+      `Heat: <b>${ht}</b> (${E.heatTier(ht)}) · ` +
+      `Trust Mesh: <b>${tr}</b> (${E.trustBand(tr)})` +
+      (E.isHunted(timeline) ? ' · <b style="color:var(--danger)">⚠ Quantum Liquidators deployed</b>' : "");
+
+    const laylow = $("act-laylow");
+    laylow.disabled = ht === 0 || !E.canLayLow(timeline);
+    laylow.title = ht === 0
+      ? "Your trail is already cold."
+      : (E.canLayLow(timeline) ? `Shed heat (−trust ${E.LAY_LOW_COST})` : "The Mesh won't hide you — trust spent.");
 
     const rep = E.reputation(timeline);
     const fBox = $("factions");
@@ -81,15 +100,16 @@
 
   // ---------- actions ----------
   function showDiff(before, after, host) {
-    for (const m of E.METRICS) {
-      const d = after[m] - before[m];
-      if (d) {
-        const p = document.createElement("div");
-        p.className = "diff" + (d < 0 ? " neg" : "");
-        p.textContent = `  ${m}: ${before[m]} → ${after[m]} (${d > 0 ? "+" : ""}${d})`;
-        host.appendChild(p);
-      }
-    }
+    const row = (label, b, a) => {
+      const d = a - b;
+      if (!d) return;
+      const p = document.createElement("div");
+      p.className = "diff" + (d < 0 ? " neg" : "");
+      p.textContent = `  ${label}: ${b} → ${a} (${d > 0 ? "+" : ""}${d})`;
+      host.appendChild(p);
+    };
+    for (const m of E.METRICS) row(m, before[m], after[m]);
+    for (const r of E.REGIONS) row(`region:${r}`, before.regions[r], after.regions[r]);
   }
 
   function commitChoice(choice) {
@@ -167,6 +187,19 @@
     });
   }
 
+  function layLowFlow() {
+    if (E.heat(timeline) === 0 || !E.canLayLow(timeline)) return;
+    timeline.push(E.LAY_LOW);
+    world = E.simulate(timeline, SEED); // world is untouched by design; keeps state in sync
+    openDrawer("Laying low", (d) => {
+      d.insertAdjacentHTML("beforeend",
+        `<p class="narrative-flash">» ${E.LAY_LOW.narrative}</p>` +
+        `<div class="quest-field"><span>Heat</span> ${E.heat(timeline)} (${E.heatTier(E.heat(timeline))})</div>` +
+        `<div class="quest-field"><span>Trust Mesh</span> ${E.trustMesh(timeline)} (${E.trustBand(E.trustMesh(timeline))})</div>`);
+    });
+    render();
+  }
+
   function rewind() {
     if (!timeline.length) return;
     timeline.pop();
@@ -235,6 +268,7 @@
     $("victory-close").onclick = () => $("victory").classList.add("hidden");
     $("act-jump").onclick = jumpFlow;
     $("act-quest").onclick = questFlow;
+    $("act-laylow").onclick = layLowFlow;
     $("act-timeline").onclick = timelineFlow;
     $("act-rewind").onclick = rewind;
     $("act-reset").onclick = reset;
