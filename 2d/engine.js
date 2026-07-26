@@ -17,6 +17,8 @@
   const METRICS = ["ai_autonomy", "corruption", "prosperity", "freedom", "ecology", "stability"];
   const FACTIONS = ["clean", "synths", "looped"];
   const REGIONS = ["kyiv", "carpathians", "odesa"];
+  // Population shares (always summing to 100), distinct from faction influence.
+  const BIO_SOCIAL = ["pures", "synths", "looped"];
 
   function baseline() {
     return {
@@ -25,6 +27,7 @@
       freedom: 75, ecology: 80, stability: 80,
       factions: { clean: 60, synths: 55, looped: 20 },
       regions: { kyiv: 85, carpathians: 75, odesa: 70 },
+      bio_social: { pures: 62, synths: 25, looped: 13 },
       flags: new Set(),
     };
   }
@@ -163,9 +166,28 @@
     requires: [], blocked_by: [],
   };
 
+  // Purchases — the other present-day actions (Energy Creds economy). They too
+  // rewrite nothing: only the wallet, charge and heat move.
+  const BUY_BATTERY_BOOST = {
+    id: "buy_battery_boost", era: PRESENT, title: "Buy a battery boost",
+    description: "Draw a fusion-grid top-up into the quantum batteries.",
+    deltas: {}, faction_deltas: {}, flags: [],
+    narrative: "The grid pours a charge into your batteries; the fusion ledger notes the draw.",
+    requires: [], blocked_by: [],
+  };
+  const BUY_MESH_SCRUB = {
+    id: "buy_mesh_scrub", era: PRESENT, title: "Buy a Mesh scrub",
+    description: "Pay a grey-market fixer to wash your traces out of the predictive logs.",
+    deltas: {}, faction_deltas: {}, flags: [],
+    narrative: "A fixer edits you out of the sweep logs. Expensive, effective, unrepeatable-looking.",
+    requires: [], blocked_by: [],
+  };
+
+  const PRESENT_ACTIONS = [LAY_LOW, BUY_BATTERY_BOOST, BUY_MESH_SCRUB];
+
   const CHOICE_BY_ID = {};
   for (const y of ERAS) for (const c of CHOICES[y]) CHOICE_BY_ID[c.id] = c;
-  CHOICE_BY_ID[LAY_LOW.id] = LAY_LOW;
+  for (const c of PRESENT_ACTIONS) CHOICE_BY_ID[c.id] = c;
 
   const jumps = (timeline) => timeline.filter((c) => c.era !== PRESENT);
 
@@ -212,6 +234,7 @@
     for (const f of Object.keys(ws.factions)) ws.factions[f] = clampVal(ws.factions[f]);
     rippleRegions(ws);
     for (const r of Object.keys(ws.regions)) ws.regions[r] = clampVal(ws.regions[r]);
+    rippleBioSocial(ws);
     return ws;
   }
 
@@ -229,6 +252,32 @@
       + (f.has("energy_commons") ? 5 : 0)
       - (f.has("energy_cartel") ? 10 : 0)
       + (f.has("orbital_solar") ? 4 : 0);
+  }
+
+  // Bio-social split (schema v2): who the people of 2226 actually are. The
+  // Pures take whatever the other two leave, so the shares always sum to 100;
+  // overflow is taken back from the Synths first. Mirrors reverse/simulator.py.
+  function rippleBioSocial(ws) {
+    const f = ws.flags;
+    let synths = 25 + floorDiv(ws.ai_autonomy - 80, 4)
+      + (f.has("upload_commons") ? 8 : 0)
+      + (f.has("ai_rights_ratified") ? 4 : 0)
+      + (f.has("singularity") ? 6 : 0)
+      - (f.has("regrounded") ? 6 : 0)
+      - (f.has("ai_rights_curbed") ? 5 : 0);
+    let looped = 13 + (f.has("biohacking_open") ? 8 : 0)
+      + (f.has("looped_enfranchised") ? 5 : 0)
+      - (f.has("looped_purged") ? 10 : 0);
+
+    synths = clampVal(synths);
+    looped = clampVal(looped);
+    const overflow = synths + looped - 100;
+    if (overflow > 0) {
+      const taken = Math.min(synths, overflow);
+      synths -= taken;
+      looped -= overflow - taken;
+    }
+    ws.bio_social = { pures: 100 - synths - looped, synths: synths, looped: looped };
   }
 
   function archetype(ws) {
@@ -263,7 +312,15 @@
   const STABILITY_BANDS = [
     [80, "coherent"], [55, "strained"], [30, "fraying"], [0, "critical anomaly"],
   ];
-  const BASE_STRAIN = 5, REVISIT_STRAIN = 3, LAY_LOW_RELIEF = 12;
+  const BASE_STRAIN = 5, REVISIT_STRAIN = 3, LAY_LOW_RELIEF = 12, SCRUB_RELIEF = 18;
+  // Heat shed per present-day action; anything absent (a boost) is invisible.
+  const HEAT_RELIEF = { lay_low: LAY_LOW_RELIEF, buy_mesh_scrub: SCRUB_RELIEF };
+
+  // Anomaly zones: an era tears open once its own strain reaches ANOMALY_AT
+  // (5 + 8 = 13, i.e. on the second jump into it).
+  const ANOMALY_AT = 13, ANOMALY_STEP = 9;
+  const ANOMALY_LABELS = ["rift", "tear", "collapse zone"];
+  const ANOMALY_SURCHARGE = 8, ANOMALY_HEAT = 3;
 
   function audacity(choice) {
     let a = 0;
@@ -271,12 +328,44 @@
     for (const d of Object.values(choice.faction_deltas)) a += Math.abs(d);
     return a;
   }
+  // Accumulated spacetime strain per era, in jump order (revisits cost more).
+  function eraStrain(timeline) {
+    const strain = {}, visits = {};
+    for (const c of jumps(timeline)) {
+      strain[c.era] = (strain[c.era] || 0) + BASE_STRAIN + REVISIT_STRAIN * (visits[c.era] || 0);
+      visits[c.era] = (visits[c.era] || 0) + 1;
+    }
+    return strain;
+  }
+  // Open anomaly zones as {era: severity}, severity >= 1.
+  function anomalies(timeline) {
+    const out = {}, strain = eraStrain(timeline);
+    for (const era of Object.keys(strain).map(Number).sort((a, b) => a - b)) {
+      if (strain[era] >= ANOMALY_AT)
+        out[era] = 1 + floorDiv(strain[era] - ANOMALY_AT, ANOMALY_STEP);
+    }
+    return out;
+  }
+  const anomalyLabel = (sev) =>
+    ANOMALY_LABELS[Math.min(Math.max(sev, 1), ANOMALY_LABELS.length) - 1];
+  const anomalySeverity = (era, timeline) => anomalies(timeline)[era] || 0;
+  const jumpSurcharge = (era, timeline) => ANOMALY_SURCHARGE * anomalySeverity(era, timeline);
+
   function heat(timeline) {
     let score = 0;
-    for (const c of jumps(timeline)) score += 4 + floorDiv(audacity(c), 15);
+    const strain = {}, visits = {};
+    for (const c of jumps(timeline)) {
+      // Severity of the tear already open in this era when the jump lands.
+      const prior = strain[c.era] || 0;
+      const severity = prior >= ANOMALY_AT ? 1 + floorDiv(prior - ANOMALY_AT, ANOMALY_STEP) : 0;
+      score += 4 + floorDiv(audacity(c), 15) + ANOMALY_HEAT * severity;
+      strain[c.era] = prior + BASE_STRAIN + REVISIT_STRAIN * (visits[c.era] || 0);
+      visits[c.era] = (visits[c.era] || 0) + 1;
+    }
     if (accumulatedFlags(timeline).has("precrime_abolished")) score = floorDiv(score, 2);
-    const laidLow = timeline.length - jumps(timeline).length;
-    return Math.max(0, score - LAY_LOW_RELIEF * laidLow);
+    let relief = 0;
+    for (const c of timeline) if (c.era === PRESENT) relief += HEAT_RELIEF[c.id] || 0;
+    return Math.max(0, score - relief);
   }
   function heatTier(score) {
     for (const [t, label] of HEAT_TIERS) if (score >= t) return label;
@@ -284,13 +373,10 @@
   }
   const isHunted = (timeline) => heat(timeline) >= HUNTED_AT;
   function stability(timeline) {
-    let strain = 0;
-    const visits = {};
-    for (const c of jumps(timeline)) {
-      strain += BASE_STRAIN + REVISIT_STRAIN * (visits[c.era] || 0);
-      visits[c.era] = (visits[c.era] || 0) + 1;
-    }
-    return Math.max(0, 100 - strain);
+    const strain = eraStrain(timeline);
+    let total = 0;
+    for (const era of Object.keys(strain)) total += strain[era];
+    return Math.max(0, 100 - total);
   }
   function stabilityBand(value) {
     for (const [t, label] of STABILITY_BANDS) if (value >= t) return label;
@@ -302,6 +388,8 @@
   const TRUST_BANDS = [
     [80, "Exemplar"], [55, "Trusted"], [35, "Watched"], [15, "Suspect"], [0, "Pariah"],
   ];
+  // Standing spent per present-day action. Purchases cost creds, not trust.
+  const TRUST_COST = { lay_low: LAY_LOW_COST };
 
   function civicValue(choice) {
     let v = 0;
@@ -311,7 +399,7 @@
   function trustMesh(timeline) {
     let score = BASE_TRUST;
     for (const c of timeline) {
-      if (c.era === PRESENT) score -= LAY_LOW_COST;
+      if (c.era === PRESENT) score -= TRUST_COST[c.id] || 0;
       else score += floorDiv(civicValue(c), 10) - JUMP_EROSION;
     }
     return clampVal(score);
@@ -321,6 +409,82 @@
     return "Pariah";
   }
   const canLayLow = (timeline) => trustMesh(timeline) >= LAY_LOW_COST;
+
+  // ---- economy (Energy Creds wallet, mirrors reverse/economy.py) -----------
+  const CIVIC_ALLOWANCE = 100, JUMP_DRAW = 15, BOOST_CHARGE = 45;
+
+  // Price multipliers in percent, by Mesh band. Official services read this
+  // table forwards (trust is a discount); grey-market services read it inverted.
+  const BAND_MODIFIER = {
+    Exemplar: 60, Trusted: 85, Watched: 110, Suspect: 145, Pariah: 200,
+  };
+  const BAND_ORDER = ["Pariah", "Suspect", "Watched", "Trusted", "Exemplar"];
+
+  const SERVICES = [
+    { id: "buy_battery_boost", name: "Fusion-grid battery boost", base_price: 40,
+      effect: `+${BOOST_CHARGE} quantum charge`,
+      grey_market: false, min_band: "Watched", max_band: null },
+    { id: "buy_mesh_scrub", name: "Grey-market Mesh scrub", base_price: 80,
+      effect: "sheds Temporal Heat without spending trust",
+      grey_market: true, min_band: null, max_band: "Trusted" },
+  ];
+  const SERVICE_BY_ID = {};
+  for (const s of SERVICES) SERVICE_BY_ID[s.id] = s;
+
+  const allowance = (timeline, ws) =>
+    CIVIC_ALLOWANCE + floorDiv(trustMesh(timeline), 2) + floorDiv(ws.prosperity - 85, 3);
+
+  function price(service, timeline) {
+    let modifier = BAND_MODIFIER[trustBand(trustMesh(timeline))];
+    if (service.grey_market) {
+      // Invert around the table: the fixer's risk is the Mesh's comfort.
+      modifier = BAND_MODIFIER.Exemplar + BAND_MODIFIER.Pariah - modifier;
+    }
+    return floorDiv(service.base_price * modifier, 100);
+  }
+
+  // Purchases are priced at the standing held *at that moment*, so the ledger
+  // is replay-stable: later choices never re-price an old line item.
+  function spent(timeline) {
+    let total = JUMP_DRAW * jumps(timeline).length;
+    timeline.forEach((c, i) => {
+      const service = SERVICE_BY_ID[c.id];
+      if (service) total += price(service, timeline.slice(0, i));
+    });
+    return total;
+  }
+
+  const credBalance = (timeline, ws) => Math.max(0, allowance(timeline, ws) - spent(timeline));
+
+  function charge(timeline) {
+    const boosts = timeline.filter((c) => c.id === "buy_battery_boost").length;
+    return Math.min(MAX_ENERGY, energy(jumps(timeline).length) + BOOST_CHARGE * boosts);
+  }
+
+  function bandAllows(service, band) {
+    const rank = BAND_ORDER.indexOf(band);
+    if (service.min_band && rank < BAND_ORDER.indexOf(service.min_band)) return false;
+    if (service.max_band && rank > BAND_ORDER.indexOf(service.max_band)) return false;
+    return true;
+  }
+
+  function availability(service, timeline, ws) {
+    const band = trustBand(trustMesh(timeline));
+    if (!bandAllows(service, band)) {
+      if (service.min_band && BAND_ORDER.indexOf(band) < BAND_ORDER.indexOf(service.min_band))
+        return [false, `the grid rations this to ${service.min_band} standing and above`];
+      return [false, `no fixer deals with ${band} standing`];
+    }
+    if (credBalance(timeline, ws) < price(service, timeline))
+      return [false, `not enough creds (need ${price(service, timeline)})`];
+    return [true, ""];
+  }
+
+  // The market board: every service as {service, price, available, reason}.
+  const offers = (timeline, ws) => SERVICES.map((s) => {
+    const [available, reason] = availability(s, timeline, ws);
+    return { service: s, price: price(s, timeline), available, reason };
+  });
 
   // ---- factions ----------------------------------------------------------
   const STANDINGS = [
@@ -389,7 +553,39 @@
     "Fractured Timeline": ["◇ FRACTURED TIMELINE", "A brittle in-between — nothing has settled, and anything still could."],
   };
   const flavoredEnding = (ws) => `${blocEpithet(ws)} ${archetype(ws)[0]}`;
-  const isVictory = (ws, timeline) => timeline.length > 0 && archetype(ws)[0] === "Solar Utopia";
+  // Present-day actions aren't tampering — only real jumps earn the utopia.
+  const isVictory = (ws, timeline) =>
+    jumps(timeline).length > 0 && archetype(ws)[0] === "Solar Utopia";
+
+  // ---- snapshot (full schema-v2 view, mirrors reverse/snapshot.py) --------
+  function operativeState(timeline, ws) {
+    const trust = trustMesh(timeline), hot = heat(timeline), space = stability(timeline);
+    const zones = anomalies(timeline);
+    return {
+      trust, trust_band: trustBand(trust),
+      heat: hot, heat_tier: heatTier(hot),
+      spacetime: space, spacetime_band: stabilityBand(space),
+      anomalies: Object.keys(zones).map(Number).sort((a, b) => a - b).map((era) => ({
+        era, severity: zones[era], label: anomalyLabel(zones[era]),
+      })),
+      creds: credBalance(timeline, ws),
+      creds_allowance: allowance(timeline, ws),
+      creds_spent: spent(timeline),
+    };
+  }
+
+  function snapshot(timeline, seed = 1337) {
+    const ws = simulate(timeline, seed);
+    const [name, blurb] = archetype(ws);
+    return {
+      schema: SCHEMA_VERSION,
+      seed,
+      choices: timeline.map((c) => c.id),
+      world: Object.assign({}, ws, { flags: Array.from(ws.flags).sort(), schema: SCHEMA_VERSION }),
+      operative: operativeState(timeline, ws),
+      ending: { archetype: name, blurb },
+    };
+  }
 
   // ---- narrator (compact offline template) -------------------------------
   function narrate(ws) {
@@ -414,15 +610,21 @@
   ];
 
   const api = {
-    SCHEMA_VERSION, METRICS, FACTIONS, REGIONS, ERAS, CHOICES, CHOICE_BY_ID,
-    PRESENT, LAY_LOW, jumps,
+    SCHEMA_VERSION, METRICS, FACTIONS, REGIONS, BIO_SOCIAL, ERAS, CHOICES, CHOICE_BY_ID,
+    PRESENT, LAY_LOW, BUY_BATTERY_BOOST, BUY_MESH_SCRUB, PRESENT_ACTIONS, jumps,
     baseline, availableChoices, accumulatedFlags,
     simulate, archetype,
     MAX_ENERGY, jumpCost, energy, canJump,
     audacity, heat, heatTier, isHunted, HUNTED_AT, stability, stabilityBand,
+    ANOMALY_SURCHARGE, ANOMALY_HEAT, eraStrain, anomalies, anomalyLabel,
+    anomalySeverity, jumpSurcharge,
     BASE_TRUST, LAY_LOW_COST, civicValue, trustMesh, trustBand, canLayLow,
+    CIVIC_ALLOWANCE, JUMP_DRAW, BOOST_CHARGE, BAND_MODIFIER, BAND_ORDER,
+    SERVICES, SERVICE_BY_ID, allowance, price, spent, credBalance, charge,
+    bandAllows, availability, offers,
     reputation, standing, patronFaction, dominantBloc, blocEpithet, FACTION_FLAVOR,
     generateQuest, ENDINGS, flavoredEnding, isVictory, narrate, PROLOGUE,
+    operativeState, snapshot,
   };
 
   root.REVerse = api;
