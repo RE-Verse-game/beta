@@ -24,6 +24,10 @@ main repo (Python 95 / JS 22 tests, value-identical).
   capping AI thins the Synths.
 
 ### Fixed
+- The grey-market Mesh scrub was priced out of the game — at 140 creds against
+  a wallet that starts at 130 and only falls, no reachable run could ever buy
+  it. Retuned so it is affordable once you have Heat worth scrubbing, while
+  still costing most of your creds.
 - Every present-day entry in the choice-log was treated as a lay-low, shedding
   Heat and Trust it never paid for; purchases now settle their own costs.
 - Buying something no longer counts as tampering with the timeline for the
