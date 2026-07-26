@@ -18,7 +18,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Gate: a console that fails its own parity suite never reaches players.
+  # Cheap enough to run on every deploy (no install step, no build).
+  test:
+    name: Engine tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node 2d/engine.test.js
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -1,0 +1,33 @@
+name: Console tests
+
+# Gates every push and pull request. The console is plain HTML/CSS/JS with no
+# build step and no dependencies, so this is just `node` on the parity suite.
+#
+# The engine here is a mirror of `web/` in the main repo (RE-Verse-game/web);
+# it carries the same tests so a bad sync is caught before it reaches Pages.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  javascript:
+    name: Console engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run engine tests
+        run: node 2d/engine.test.js
+      - name: Syntax-check the front-end
+        run: node --check 2d/app.js && node --check 2d/engine.js
