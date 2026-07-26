@@ -3,6 +3,32 @@
 All notable changes to the RE:Verse public browser beta are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.0.3] — 2026-07-26
+
+Economy & anomaly sync — the console now carries the finished M2 engine from the
+main repo (Python 95 / JS 22 tests, value-identical).
+
+### Added
+- **Energy Creds** — the post-scarcity wallet: a civic allowance lifted by your
+  Trust Mesh standing and by how prosperous the timeline you built is, drawn
+  down by wormhole billing and purchases.
+- **Market** — spend creds on a fusion-grid battery boost (+45 charge) or a
+  grey-market Mesh scrub (sheds Heat for creds instead of trust). Your standing
+  *discounts* official services and *inflates* grey-market ones — a fixer
+  charges a model citizen a fortune and a Pariah a pittance.
+- **Anomaly zones** — jump into the same era twice and the continuum tears
+  there for good (rift → tear → collapse zone). Re-entering a torn era costs
+  extra charge and extra Heat; the era buttons show the surcharge up front.
+- **People of 2226** — population shares of Pures / Synths / Looped, rippled
+  from the timeline: open biohacking makes the Looped, the purge unmakes them,
+  capping AI thins the Synths.
+
+### Fixed
+- Every present-day entry in the choice-log was treated as a lay-low, shedding
+  Heat and Trust it never paid for; purchases now settle their own costs.
+- Buying something no longer counts as tampering with the timeline for the
+  purposes of the ending overlay.
+
 ## [v0.0.2] — 2026-07-25
 
 M2 core-systems sync — the public 2D console now carries the same engine as the

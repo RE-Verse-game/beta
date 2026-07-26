@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.0.1-orange" alt="version" />
+  <img src="https://img.shields.io/badge/version-v0.0.3-orange" alt="version" />
   <img src="https://img.shields.io/badge/status-public%20beta-blue" alt="status" />
   <img src="https://img.shields.io/badge/build-no--build%20static-brightgreen" alt="build" />
   <img src="https://img.shields.io/badge/license-BSL%201.1-lightgrey" alt="license" />
@@ -55,8 +55,10 @@ Continuum** → **Chronos Jump** into an era → pick a choice → watch 2226's 
 
 | Action | What it does |
 | --- | --- |
-| **⟲ Chronos Jump** | Travel to an era and change one thing (costs charge, rising per jump) |
+| **⟲ Chronos Jump** | Travel to an era and change one thing (costs charge, rising per jump — plus a surcharge if you already tore that era open) |
 | **◈ Quest** | Generate a side-quest from the current world-state |
+| **◌ Lay low** | Go dark to shed Temporal Heat, paid for out of your Trust Mesh standing |
+| **⌬ Market** | Spend Energy Creds on a battery boost or a grey-market Mesh scrub — your standing sets the price |
 | **≡ Timeline** | Review every change you've made |
 | **↶ Rewind** | Undo your last change and release its energy |
 | **⟳ Reset** | Restore the pristine timeline and full charge |
@@ -121,8 +123,8 @@ Unity's **Compression Format → Disabled** so it serves from GitHub Pages.
 
 ## Changelog
 
-See **[CHANGELOG.md](CHANGELOG.md)**. Current release: **v0.0.1** — first public
-browser beta of the Chronos core loop.
+See **[CHANGELOG.md](CHANGELOG.md)**. Current release: **v0.0.3** — the Energy
+Creds market, anomaly zones and the bio-social split of 2226.
 
 ## About the full project
 

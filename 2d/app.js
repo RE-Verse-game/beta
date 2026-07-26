@@ -36,8 +36,8 @@
     $("archetype").textContent = name;
     $("narration").textContent = E.narrate(world);
 
-    const n = E.jumps(timeline).length; // lay-low entries cost no charge
-    const charge = E.energy(n);
+    const n = E.jumps(timeline).length; // present-day entries cost no charge
+    const charge = E.charge(timeline);  // includes bought battery boosts
     $("charge-fill").style.width = (charge / E.MAX_ENERGY) * 100 + "%";
     $("charge-num").textContent = charge + "/" + E.MAX_ENERGY;
 
@@ -57,6 +57,14 @@
       `Heat: <b>${ht}</b> (${E.heatTier(ht)}) · ` +
       `Trust Mesh: <b>${tr}</b> (${E.trustBand(tr)})` +
       (E.isHunted(timeline) ? ' · <b style="color:var(--danger)">⚠ Quantum Liquidators deployed</b>' : "");
+
+    const zones = E.anomalies(timeline);
+    const eras = Object.keys(zones);
+    $("anomalies").innerHTML = eras.length
+      ? "✷ Anomaly zones: " + eras
+          .map((y) => `<b>${y}</b> ${E.anomalyLabel(zones[y])} (+${E.jumpSurcharge(Number(y), timeline)} charge)`)
+          .join(" · ")
+      : "";
 
     const laylow = $("act-laylow");
     laylow.disabled = ht === 0 || !E.canLayLow(timeline);
@@ -81,8 +89,19 @@
       (patron ? "◈ Patron: " + E.FACTION_FLAVOR[patron] : "◈ Patron: none yet — no bloc calls you ally.") +
       `<br>▣ Dominant bloc in 2226: <b>${E.dominantBloc(world)}</b>`;
 
-    $("act-rewind").disabled = n === 0;
-    const canJump = E.canJump(n);
+    // Population shares of Pures / Synths / Looped — headcount, not influence.
+    const bBox = $("bio-social");
+    bBox.innerHTML = "";
+    for (const g of E.BIO_SOCIAL)
+      bBox.appendChild(bar(g, world.bio_social[g], "var(--gold)", world.bio_social[g] + "%"));
+
+    const creds = E.credBalance(timeline, world);
+    $("wallet").innerHTML =
+      `⌬ Energy Creds: <b>${creds}</b> ` +
+      `(allowance ${E.allowance(timeline, world)}, drawn ${E.spent(timeline)})`;
+
+    $("act-rewind").disabled = timeline.length === 0;
+    const canJump = charge >= E.jumpCost(n);
     $("act-jump").disabled = !canJump;
     $("act-jump").textContent = canJump
       ? `⟲ Chronos Jump (−${E.jumpCost(n)})`
@@ -110,6 +129,7 @@
     };
     for (const m of E.METRICS) row(m, before[m], after[m]);
     for (const r of E.REGIONS) row(`region:${r}`, before.regions[r], after.regions[r]);
+    for (const g of E.BIO_SOCIAL) row(`people:${g}`, before.bio_social[g], after.bio_social[g]);
   }
 
   function commitChoice(choice) {
@@ -130,18 +150,61 @@
   }
 
   function jumpFlow() {
+    const n = E.jumps(timeline).length;
     openDrawer("Chronos Jump — choose an era", (d) => {
       const grid = document.createElement("div");
       grid.className = "era-grid";
       for (const y of E.ERAS) {
+        // A torn era demands a surcharge on top of the ordinary jump cost.
+        const severity = E.anomalySeverity(y, timeline);
+        const cost = E.jumpCost(n) + E.jumpSurcharge(y, timeline);
+        const affordable = E.charge(timeline) >= cost;
         const b = document.createElement("button");
         b.className = "btn";
-        b.textContent = y;
+        b.innerHTML = severity
+          ? `${y}<small> ${E.anomalyLabel(severity)} · −${cost}</small>`
+          : `${y}<small> −${cost}</small>`;
+        b.disabled = !affordable;
+        b.title = affordable
+          ? `Costs ${cost} charge`
+          : `Needs ${cost} charge — you have ${E.charge(timeline)}`;
         b.onclick = () => pickChoice(y);
         grid.appendChild(b);
       }
       d.appendChild(grid);
     });
+  }
+
+  function marketFlow() {
+    openDrawer("Market — Energy Creds", (d) => {
+      d.insertAdjacentHTML("beforeend",
+        `<p class="narrative-flash">⌬ Balance: ${E.credBalance(timeline, world)} creds · ` +
+        `${E.trustBand(E.trustMesh(timeline))} standing</p>`);
+      for (const offer of E.offers(timeline, world)) {
+        const b = document.createElement("button");
+        b.className = "choice";
+        b.innerHTML = `<b>${offer.service.name} — ${offer.price} creds</b>` +
+          `<small>${offer.available ? offer.service.effect : "locked — " + offer.reason}</small>`;
+        b.disabled = !offer.available;
+        b.onclick = () => buy(offer);
+        d.appendChild(b);
+      }
+    });
+  }
+
+  function buy(offer) {
+    const action = E.CHOICE_BY_ID[offer.service.id];
+    timeline.push(action);
+    // Purchases never rewrite the world — only charge, heat and the wallet move.
+    openDrawer("Purchase", (d) => {
+      d.insertAdjacentHTML("beforeend",
+        `<p class="narrative-flash">» ${action.narrative}</p>` +
+        `<div class="quest-field"><span>Paid</span> ${offer.price} creds</div>` +
+        `<div class="quest-field"><span>Balance</span> ${E.credBalance(timeline, world)} creds</div>` +
+        `<div class="quest-field"><span>Charge</span> ${E.charge(timeline)}/${E.MAX_ENERGY}</div>` +
+        `<div class="quest-field"><span>Heat</span> ${E.heat(timeline)} (${E.heatTier(E.heat(timeline))})</div>`);
+    });
+    render();
   }
 
   function pickChoice(year) {
@@ -242,7 +305,8 @@
     "Singularity Fusion", "Grounded Renaissance",
   ]);
   function isEnding() {
-    return timeline.length > 0 && RESOLVED.has(E.archetype(world)[0]);
+    // Present-day actions aren't tampering — only real jumps resolve a timeline.
+    return E.jumps(timeline).length > 0 && RESOLVED.has(E.archetype(world)[0]);
   }
   function showEnding() {
     const [name, blurb] = E.archetype(world);
@@ -269,6 +333,7 @@
     $("act-jump").onclick = jumpFlow;
     $("act-quest").onclick = questFlow;
     $("act-laylow").onclick = layLowFlow;
+    $("act-market").onclick = marketFlow;
     $("act-timeline").onclick = timelineFlow;
     $("act-rewind").onclick = rewind;
     $("act-reset").onclick = reset;

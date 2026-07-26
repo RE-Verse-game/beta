@@ -143,4 +143,104 @@ check("data-rights chain unlocks orbital solar then mind-upload", () => {
   assert.ok(ids(2150, tl2).includes("open_mind_upload"));
 });
 
+check("bio-social shares always sum to 100 and react to the timeline", () => {
+  const id = (i) => E.CHOICE_BY_ID[i];
+  assert.deepStrictEqual(E.baseline().bio_social, { pures: 62, synths: 25, looped: 13 });
+  const timelines = [
+    [], [id("protect_first_code")],
+    [id("protect_first_code"), id("open_biohacking")],
+    [id("protect_first_code"), id("open_biohacking"), id("purge_loopers")],
+    Array(6).fill(id("restrict_ai_rights")),
+  ];
+  for (const tl of timelines) {
+    const bs = E.simulate(tl).bio_social;
+    assert.strictEqual(bs.pures + bs.synths + bs.looped, 100);
+    assert.ok(Object.values(bs).every((v) => v >= 0));
+  }
+  const opened = E.simulate([id("protect_first_code"), id("open_biohacking")]).bio_social;
+  const purged = E.simulate([id("protect_first_code"), id("open_biohacking"),
+                             id("purge_loopers")]).bio_social;
+  assert.ok(purged.looped < opened.looped);
+  assert.ok(E.simulate([id("restrict_ai_rights")]).bio_social.synths
+            < E.simulate([]).bio_social.synths);
+});
+
+check("a second jump into an era tears an anomaly zone open", () => {
+  const id = (i) => E.CHOICE_BY_ID[i];
+  const PFC = id("protect_first_code"), FAR = id("full_ai_rights");
+  assert.deepStrictEqual(E.anomalies([PFC]), {});
+  assert.deepStrictEqual(E.anomalies([PFC, id("fusion_commons")]), {}); // two eras
+  assert.deepStrictEqual(E.anomalies([PFC, FAR]), { 2058: 1 });
+  assert.strictEqual(E.anomalyLabel(1), "rift");
+  assert.strictEqual(E.anomalyLabel(99), "collapse zone");   // label clamps
+  assert.strictEqual(E.jumpSurcharge(2058, [PFC, FAR]), E.ANOMALY_SURCHARGE);
+  assert.strictEqual(E.jumpSurcharge(2090, [PFC, FAR]), 0);
+  // Landing on a torn era is louder than the jump that tore it.
+  const CDR = id("charter_data_rights"), RAR = id("restrict_ai_rights");
+  const intact = E.heat([CDR, RAR]) - E.heat([CDR]);
+  const torn = E.heat([CDR, RAR, RAR]) - E.heat([CDR, RAR]);
+  assert.strictEqual(torn, intact + E.ANOMALY_HEAT);
+});
+
+check("Energy Creds price official services down and grey-market ones up", () => {
+  const id = (i) => E.CHOICE_BY_ID[i];
+  const boost = E.SERVICE_BY_ID["buy_battery_boost"];
+  const scrub = E.SERVICE_BY_ID["buy_mesh_scrub"];
+  assert.strictEqual(E.price(boost, []), Math.floor(40 * E.BAND_MODIFIER.Trusted / 100));
+
+  const sunk = Array(10).fill(id("restrict_ai_rights"));
+  assert.strictEqual(E.trustBand(E.trustMesh(sunk)), "Pariah");
+  assert.ok(E.price(boost, sunk) > E.price(boost, []));   // the grid punishes
+  assert.ok(E.price(scrub, sunk) < E.price(scrub, []));   // the fixer welcomes
+
+  assert.ok(E.bandAllows(boost, "Trusted") && !E.bandAllows(boost, "Suspect"));
+  assert.ok(E.bandAllows(scrub, "Watched") && !E.bandAllows(scrub, "Exemplar"));
+  assert.deepStrictEqual(E.availability(boost, [], E.simulate([])), [true, ""]);
+  assert.strictEqual(E.availability(boost, sunk, E.simulate(sunk))[0], false);
+  assert.strictEqual(E.offers([], E.simulate([])).length, E.SERVICES.length);
+});
+
+check("purchases move charge and heat but never the world or the ledger's past", () => {
+  const id = (i) => E.CHOICE_BY_ID[i];
+  const PFC = id("protect_first_code"), FAR = id("full_ai_rights");
+  const tl = [PFC, FAR];
+
+  // Boost tops up charge, capped at a full battery; scrub sheds heat for free.
+  assert.strictEqual(E.charge(tl.concat([E.BUY_BATTERY_BOOST])),
+                     E.charge(tl) + E.BOOST_CHARGE);
+  assert.strictEqual(E.charge([E.BUY_BATTERY_BOOST, E.BUY_BATTERY_BOOST,
+                               E.BUY_BATTERY_BOOST]), E.MAX_ENERGY);
+  assert.ok(E.heat(tl.concat([E.BUY_MESH_SCRUB])) < E.heat(tl));
+  assert.strictEqual(E.trustMesh(tl.concat([E.BUY_MESH_SCRUB])), E.trustMesh(tl));
+  assert.deepStrictEqual(E.simulate(tl.concat([E.BUY_BATTERY_BOOST])), E.simulate(tl));
+
+  // A later trust collapse must not re-price an old purchase.
+  const early = [PFC, E.BUY_BATTERY_BOOST];
+  const atPurchase = E.price(E.SERVICE_BY_ID["buy_battery_boost"], [PFC]);
+  assert.strictEqual(E.spent(early), E.JUMP_DRAW + atPurchase);
+  const later = early.concat(Array(10).fill(id("restrict_ai_rights")));
+  assert.strictEqual(E.spent(later), E.JUMP_DRAW * 11 + atPurchase);
+  assert.strictEqual(E.credBalance(later, E.simulate(later)), 0);  // never negative
+});
+
+check("snapshot joins world, operative standing and ending deterministically", () => {
+  const PFC = E.CHOICE_BY_ID["protect_first_code"];
+  const tl = [PFC, E.BUY_BATTERY_BOOST];
+  const snap = E.snapshot(tl);
+  assert.strictEqual(snap.schema, E.SCHEMA_VERSION);
+  assert.deepStrictEqual(snap.choices, ["protect_first_code", "buy_battery_boost"]);
+  assert.ok(Array.isArray(snap.world.flags));            // serializable, sorted
+  assert.ok(snap.world.bio_social.pures > 0);
+  assert.ok(snap.ending.archetype);
+  for (const key of ["trust", "trust_band", "heat", "heat_tier", "spacetime",
+                     "spacetime_band", "anomalies", "creds"])
+    assert.ok(key in snap.operative, key);
+  assert.deepStrictEqual(E.snapshot(tl), E.snapshot(tl.slice()));
+  assert.deepStrictEqual(
+    E.operativeState([PFC, E.CHOICE_BY_ID["full_ai_rights"]],
+                     E.simulate([PFC, E.CHOICE_BY_ID["full_ai_rights"]])).anomalies,
+    [{ era: 2058, severity: 1, label: "rift" }]
+  );
+});
+
 console.log(passed + " passed");
