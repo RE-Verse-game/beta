@@ -125,7 +125,13 @@
       // The one line about the operative's body rather than their record.
       `<br>⚕ Body: <b>${E.bioBand(strain)}</b> (strain ${strain}) · ` +
       `${E.installed(timeline).length}/${E.AUGMENTS.length} augments · ` +
-      `lifespan <b>${E.lifespan(timeline)}</b>y`;
+      `lifespan <b>${E.lifespan(timeline)}</b>y` +
+      // ...and the one about the ground they are standing on.
+      `<br>◈ Zone: <b>${E.ZONE_NAMES[E.currentZone(timeline)]}</b> · ` +
+      `dust ${E.effectiveDensity(E.currentZone(timeline), timeline)} ` +
+      `(${E.dustBand(E.effectiveDensity(E.currentZone(timeline), timeline))}, ` +
+      `${E.jumpExposure(timeline) >= 0 ? "+" : ""}${E.jumpExposure(timeline)} heat/jump) · ` +
+      `sky <b>${E.weather(timeline)[0]}</b>`;
 
     $("act-rewind").disabled = timeline.length === 0;
     // Eras are priced differently now, so the button asks about the cheapest
@@ -206,8 +212,8 @@
     });
   }
 
-  // Both boards are the same wallet: the market spends on the run, the clinic
-  // on the operative. One builder, two service lists (see engine.js).
+  // All three boards are the same wallet: the market spends on the run, the
+  // clinic on the operative, transit on the ground under them (see engine.js).
   function boardFlow(title, header, board) {
     openDrawer(title, (d) => {
       d.insertAdjacentHTML("beforeend", `<p class="narrative-flash">${header}</p>`);
@@ -238,15 +244,50 @@
       E.clinicOffers(timeline, world));
   }
 
+  // The dust board is the whole decision on one screen: what each zone's air
+  // reads right now, what a jump out of it costs, and what the sky does next —
+  // the quiet window is scheduled, not stumbled into.
+  function zonesFlow() {
+    const here = E.currentZone(timeline);
+    const sky = E.weather(timeline)[0];
+    const ahead = E.forecast(timeline).map(([label]) => label).join(" → ");
+    openDrawer("Smart Dust — the surveillance field", (d) => {
+      d.insertAdjacentHTML("beforeend",
+        `<p class="narrative-flash">◈ ${E.ZONE_NAMES[here]} · sky <b>${sky}</b>` +
+        `<br>forecast: ${ahead}</p>`);
+      const grid = document.createElement("div");
+      for (const [zone, reading, band, anchor] of E.fieldReport(timeline)) {
+        const exposure = E.bandHeat(reading);
+        grid.insertAdjacentHTML("beforeend",
+          `<div class="quest-field"><span>${zone === here ? "▸ " : ""}${E.ZONE_NAMES[zone]}</span> ` +
+          `dust ${reading} (${band}) · ${exposure >= 0 ? "+" : ""}${exposure} heat/jump · ` +
+          `+${anchor} charge/jump</div>`);
+      }
+      d.appendChild(grid);
+      for (const offer of E.transitOffers(timeline, world)) {
+        const b = document.createElement("button");
+        b.className = "choice";
+        b.innerHTML = `<b>${offer.service.name} — ${offer.price} creds</b>` +
+          `<small>${offer.available ? offer.service.effect : "locked — " + offer.reason}</small>`;
+        b.disabled = !offer.available;
+        b.onclick = () => buy(offer);
+        d.appendChild(b);
+      }
+    });
+  }
+
   function buy(offer) {
     const action = E.CHOICE_BY_ID[offer.service.id];
     const clinical = !!E.AUGMENT_BY_ID[action.id] || action.id === E.POD_ID;
+    const moved = !!E.zoneOf(action.id);
     timeline.push(action);
     // Purchases never rewrite the world — only the operative moves. A clinic
     // visit moves a different set of numbers than a market run, so it reports
     // the body and the standing it just cost.
-    openDrawer(clinical ? "Bio-clinic" : "Purchase", (d) => {
+    openDrawer(clinical ? "Bio-clinic" : moved ? "Maglev" : "Purchase", (d) => {
       const strain = E.bioStrain(timeline);
+      const zone = E.currentZone(timeline);
+      const reading = E.effectiveDensity(zone, timeline);
       d.insertAdjacentHTML("beforeend",
         `<p class="narrative-flash">» ${action.narrative}</p>` +
         `<div class="quest-field"><span>Paid</span> ${offer.price} creds</div>` +
@@ -255,6 +296,14 @@
           ? `<div class="quest-field"><span>Body</span> ${E.bioBand(strain)} (strain ${strain})</div>` +
             `<div class="quest-field"><span>Lifespan</span> ${E.lifespan(timeline)} years</div>` +
             `<div class="quest-field"><span>Trust Mesh</span> ${E.trustMesh(timeline)} (${E.trustBand(E.trustMesh(timeline))})</div>`
+          : "") +
+        // A move buys air, so it reports the air it bought — and the sky, which
+        // the ticket itself just advanced.
+        (moved
+          ? `<div class="quest-field"><span>Zone</span> ${E.ZONE_NAMES[zone]}</div>` +
+            `<div class="quest-field"><span>Dust</span> ${reading} (${E.dustBand(reading)}) · ` +
+            `${E.jumpExposure(timeline) >= 0 ? "+" : ""}${E.jumpExposure(timeline)} heat/jump</div>` +
+            `<div class="quest-field"><span>Sky</span> ${E.weather(timeline)[0]}</div>`
           : "") +
         `<div class="quest-field"><span>Charge</span> ${E.charge(timeline, world)}/${E.batteryCeiling(world, timeline)}</div>` +
         `<div class="quest-field"><span>Heat</span> ${E.heat(timeline)} (${E.heatTier(E.heat(timeline))})</div>`);
@@ -390,6 +439,7 @@
     $("act-laylow").onclick = layLowFlow;
     $("act-market").onclick = marketFlow;
     $("act-clinic").onclick = clinicFlow;
+    $("act-zones").onclick = zonesFlow;
     $("act-timeline").onclick = timelineFlow;
     $("act-rewind").onclick = rewind;
     $("act-reset").onclick = reset;

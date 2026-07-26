@@ -3,6 +3,31 @@
 All notable changes to the RE:Verse public browser beta are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.0.5] — 2026-07-26
+
+Smart Dust — the console's engine gains the system that makes *where* you jump
+from a decision (JS 33 tests, value-identical to Python and C#).
+
+### Added
+- **Smart Dust field** — Canton's air is a sensor mesh, and it is not the same
+  everywhere: thickest in the Kyiv megacity, thinnest in the Carpathian uplands
+  the seeding budget never reached. The past re-seeds it, so abolishing
+  pre-crime thins the field across the whole country while letting a cartel take
+  the fusion grid saturates it. Where you launch a jump from now decides how
+  loud that jump is.
+- **The weather grid** — Canton schedules its own sky and publishes the
+  forecast, because Canton owns it. Four phases: clear, a thermal inversion that
+  pins the dust to the street, an ion storm that drops it out of the air, and
+  seeding rain. The programme advances only while you spend time in 2226 — a
+  Chronos Jump returns you to the moment you left, so it costs no weather.
+- **◈ Zones and the maglev** — ride between Kyiv, the Carpathians and Odesa. One
+  zone and one phase reach the quiet `swept` band — the Carpathians under an ion
+  storm — and reaching it takes two present-day actions, because buying the
+  ticket advances the sky as well. Stealth is not free: the Chronos anchor is
+  under Kyiv, so every jump out of the quiet zones costs extra charge. The same
+  2058 jump runs 8 heat / 36 charge from home and 5 heat / 45 charge from the
+  storm.
+
 ## [v0.0.4] — 2026-07-26
 
 Two-cycle catch-up — the console had fallen behind the main repo's engine by the
