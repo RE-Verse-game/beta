@@ -533,4 +533,72 @@ check("Smart Dust: the field, the weather grid and the zone trade", () => {
   assert.strictEqual(field.dust.anchor_surcharge, E.ZONE_ANCHOR.carpathians);
 });
 
+check("the Temporal Terrorist arc: pursuit, escape and the fail state", () => {
+  const id = (i) => E.CHOICE_BY_ID[i];
+  const RAR = id("restrict_ai_rights"), PFC = id("protect_first_code");
+  const FUSION = id("fusion_commons"), BOOST = id("buy_battery_boost");
+  const LAY_LOW = id("lay_low"), SCRUB = id("buy_mesh_scrub");
+  const CARP = id("relocate_carpathians");
+  const LOUD = Array(8).fill(RAR);
+
+  // Nobody is hunting a clean operative, and heat alone is not pursuit.
+  assert.strictEqual(E.pressure([]), 0);
+  assert.strictEqual(E.huntStage([]), "clear");
+  assert.ok(E.heat([PFC]) > 0 && !E.huntedAt([PFC]));
+  assert.strictEqual(E.pressure([PFC]), 0);
+
+  // The ladder climbs in order — you are warned three times before the end.
+  const seen = [];
+  let previous = 0;
+  for (let i = 0; i <= LOUD.length; i++) {
+    const value = E.pressure(LOUD.slice(0, i));
+    assert.ok(value >= previous);
+    previous = value;
+    const label = E.huntStage(LOUD.slice(0, i));
+    if (!seen.length || seen[seen.length - 1] !== label) seen.push(label);
+  }
+  assert.deepStrictEqual(seen, ["clear", "Sweep", "Cordon", "Interception"]);
+
+  // A jump under an active sweep is a flare; a quiet day in 2226 is not.
+  const hunted = LOUD.slice(0, 5);
+  assert.ok(E.huntedAt(hunted));
+  const jumped = E.pressure(hunted.concat([RAR])) - E.pressure(hunted);
+  const idled = E.pressure(hunted.concat([BOOST])) - E.pressure(hunted);
+  assert.ok(jumped > idled && idled > 0);
+  assert.strictEqual(jumped - idled, E.PRESSURE_JUMP - E.PRESSURE_PRESENT);
+
+  // Smart Dust doing double duty: the swept uplands hide you from the cordon.
+  const fled = hunted.concat([CARP, BOOST]);
+  assert.strictEqual(E.dustBand(E.effectiveDensity("carpathians", fled)), "swept");
+  assert.ok(E.pressure(fled.concat([RAR])) - E.pressure(fled) < jumped);
+
+  // Relief cuts *banked* pressure, so a cordon can be escaped, not just survived.
+  const cornered = LOUD.slice(0, 6);
+  assert.strictEqual(E.huntStage(cornered), "Cordon");
+  assert.ok(E.pressure(cornered.concat([LAY_LOW])) < E.pressure(cornered));
+  assert.ok(E.pressure(cornered.concat([SCRUB])) < E.pressure(cornered));
+  assert.strictEqual(E.pressure(cornered.concat(Array(6).fill(LAY_LOW))), 0);
+
+  // The fail state, and the one case where archetype and outcome disagree.
+  const caught = [BOOST, PFC, PFC, FUSION, FUSION, BOOST, RAR];
+  assert.ok(E.liquidated(caught));
+  assert.strictEqual(E.huntStage(caught), "Liquidation");
+  assert.strictEqual(E.huntMargin(caught), 0);
+  // Capped: being caught twice is not a thing.
+  assert.strictEqual(E.pressure(caught.concat(Array(3).fill(RAR))), E.LIQUIDATED_AT);
+  const world = E.simulate(caught);
+  assert.strictEqual(E.endingBanner(world, caught)[0], E.LIQUIDATED[0]);
+  assert.ok(!E.isVictory(world, caught));
+
+  // The pursuit reads the authored Canton, so drift never decides it.
+  const tl = [PFC, id("full_ai_rights"), RAR];
+  assert.strictEqual(E.authoredWorld(tl).prosperity, E.authoredWorld(tl).prosperity);
+  assert.strictEqual(E.pressure(tl), E.pressure(tl));
+
+  const pursuit = E.snapshot(cornered).operative.pursuit;
+  assert.strictEqual(pursuit.stage, "Cordon");
+  assert.strictEqual(pursuit.caught_at, E.LIQUIDATED_AT);
+  assert.strictEqual(pursuit.liquidated, false);
+});
+
 console.log(passed + " passed");

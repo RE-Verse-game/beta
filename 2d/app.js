@@ -62,6 +62,13 @@
       `Trust Mesh: <b>${tr}</b> (${E.trustBand(tr)})` +
       (E.isHunted(timeline, world) ? ' · <b style="color:var(--danger)">⚠ Quantum Liquidators deployed</b>' : "");
 
+    // The pursuit itself: not whether they are after you, but how close they
+    // have got. Silent until there is something to say.
+    const pres = E.pressure(timeline), stage = E.huntStage(timeline);
+    $("pursuit").innerHTML = (pres === 0 && !E.huntedAt(timeline)) ? ""
+      : `<b style="color:var(--danger)">☠ Pursuit: ${pres}/${E.LIQUIDATED_AT}`
+        + ` (${stage})</b> — ${E.STAGE_FLAVOR[stage]}`;
+
     const zones = E.anomalies(timeline);
     const eras = Object.keys(zones);
     $("anomalies").innerHTML = eras.length
@@ -410,18 +417,25 @@
   ]);
   function isEnding() {
     // Present-day actions aren't tampering — only real jumps resolve a timeline.
-    return E.jumps(timeline).length > 0 && RESOLVED.has(E.archetype(world)[0]);
+    // Being caught resolves one whatever the archetype says (the fail state).
+    return E.liquidated(timeline)
+      || (E.jumps(timeline).length > 0 && RESOLVED.has(E.archetype(world)[0]));
   }
   function showEnding() {
+    const caught = E.liquidated(timeline);
     const [name, blurb] = E.archetype(world);
-    const tag = (E.ENDINGS[name] && E.ENDINGS[name][0]) || "★";
+    const [tag, text] = caught ? E.LIQUIDATED : [E.ENDINGS[name] ? E.ENDINGS[name][0] : "★", blurb];
     document.querySelector(".victory-badge").textContent = tag.trim().charAt(0);
-    $("victory-title").textContent = E.flavoredEnding(world).toUpperCase();
-    $("victory-blurb").textContent = blurb;
-    document.querySelector(".victory-note").textContent =
-      name === "Solar Utopia"
+    $("victory-title").textContent = caught
+      ? "LIQUIDATION ORDER EXECUTED" : E.flavoredEnding(world).toUpperCase();
+    $("victory-blurb").textContent = text;
+    document.querySelector(".victory-note").textContent = caught
+      ? `The squads closed at ${E.LIQUIDATED_AT} pursuit. Rewind releases the last`
+        + " move; Reset restores the continuum."
+      : name === "Solar Utopia"
         ? "You rewrote the past and reassembled the ideal future."
         : "A different continuum — humanity chose another path entirely.";
+    $("victory").classList.toggle("liquidated", caught);
     $("victory").classList.remove("hidden");
   }
 

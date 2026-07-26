@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.0.5-orange" alt="version" />
+  <img src="https://img.shields.io/badge/version-v0.0.6-orange" alt="version" />
   <img src="https://img.shields.io/badge/status-public%20beta-blue" alt="status" />
   <img src="https://img.shields.io/badge/build-no--build%20static-brightgreen" alt="build" />
   <img src="https://img.shields.io/badge/license-BSL%201.1-lightgrey" alt="license" />
@@ -61,6 +61,7 @@ Continuum** → **Chronos Jump** into an era → pick a choice → watch 2226's 
 | **⌬ Market** | Spend Energy Creds on a battery boost or a grey-market Mesh scrub — your standing sets the price |
 | **⚕ Bio-clinic** | Spend the same creds on yourself: a four-augment tree, each install leaving permanent bio-strain — enough of it and the Mesh stops reading you as baseline human. Recovery pods flush it back out |
 | **◈ Zones** | Ride the maglev between Kyiv, the Carpathians and Odesa. Each has its own Smart Dust density, so where you launch a jump from decides how loud it is — but the Chronos anchor is under Kyiv, and the quiet zones charge for the distance. Canton's weather runs on a published schedule that only advances while you spend time in 2226 |
+| **☠ Pursuit** | Not a button — a readout. Cross the heat threshold and the Liquidators start closing: Sweep → Cordon → Interception → Liquidation, driven by what you do while they are on you and by how much dust is in the air where you do it. Lay low or buy a scrub to shed banked pressure; reach the top and the run is over |
 | **≡ Timeline** | Review every change you've made |
 | **↶ Rewind** | Undo your last change and release its energy |
 | **⟳ Reset** | Restore the pristine timeline and full charge |
@@ -125,8 +126,9 @@ Unity's **Compression Format → Disabled** so it serves from GitHub Pages.
 
 ## Changelog
 
-See **[CHANGELOG.md](CHANGELOG.md)**. Current release: **v0.0.5** — the Smart Dust
-surveillance field, its weather grid and the maglev between the three zones.
+See **[CHANGELOG.md](CHANGELOG.md)**. Current release: **v0.0.6** — the Temporal
+Terrorist arc: a Liquidator pursuit that tightens as you run, and the console's
+first fail state.
 
 ## About the full project
 
