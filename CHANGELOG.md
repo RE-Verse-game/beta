@@ -3,6 +3,37 @@
 All notable changes to the RE:Verse public browser beta are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.0.4] — 2026-07-26
+
+Two-cycle catch-up — the console had fallen behind the main repo's engine by the
+emergent-powers and quantum-battery-v2 cycles, and now carries both plus the new
+bio-hacking progression (JS 32 tests, value-identical to Python and C#).
+
+### Added
+- **Emergent power blocs** — a Right-to-Work Resistance, Quantum Liquidators,
+  DIYA-OMEGA Synergists and Cyber-Oligarch Cartels, none of which anyone votes
+  into being: they are folded out of the world the way regions are. Let machines
+  take every job and a Resistance grows whether you wanted one or not. The
+  stronger the Liquidators, the *sooner* the same Heat gets you hunted — Heat now
+  reads against a live threshold instead of a fixed number.
+- **Quantum battery v2** — a jump is priced, not flat: reaching further back
+  costs more (2180 is the cheap door, 2058 the expensive one), and the louder you
+  have already edited history the dearer every later jump gets. Against that, a
+  prosperous, stable, green Canton runs a healthier fusion grid that holds a
+  bigger charge.
+- **Bio-clinic** — the first system that spends creds on *you*: four augments in
+  a tree (longevity lattice → neural governor / fusion weave → chrono marrow),
+  each buying a permanent modifier and each leaving bio-strain behind. So does
+  jumping into an era you already tore — the Looped are the anomaly-damaged, and
+  this is how you become one. Enough strain and the Mesh withholds standing,
+  which raises every price you pay. Recovery pods flush it; lifespan is the
+  running total.
+
+### Fixed
+- The anomaly surcharge was quoted at the era picker and printed in the message
+  but never actually left the batteries — jumps into torn eras were free of the
+  penalty they advertised.
+
 ## [v0.0.3] — 2026-07-26
 
 Economy & anomaly sync — the console now carries the finished M2 engine from the

@@ -36,10 +36,12 @@
     $("archetype").textContent = name;
     $("narration").textContent = E.narrate(world);
 
-    const n = E.jumps(timeline).length; // present-day entries cost no charge
-    const charge = E.charge(timeline);  // includes bought battery boosts
-    $("charge-fill").style.width = (charge / E.MAX_ENERGY) * 100 + "%";
-    $("charge-num").textContent = charge + "/" + E.MAX_ENERGY;
+    // The ceiling is the fusion grid's and the operative's own: a healthier
+    // Canton holds more charge, and so does a woven-in fusion cell.
+    const charge = E.charge(timeline, world);  // includes bought battery boosts
+    const ceiling = E.batteryCeiling(world, timeline);
+    $("charge-fill").style.width = (charge / ceiling) * 100 + "%";
+    $("charge-num").textContent = charge + "/" + ceiling;
 
     const mBox = $("metrics");
     mBox.innerHTML = "";
@@ -52,11 +54,13 @@
 
     const space = E.stability(timeline), ht = E.heat(timeline);
     const tr = E.trustMesh(timeline);
+    // Heat is shown against the deploy threshold, because the threshold moves
+    // with how strong the Liquidators grew in this timeline.
     $("temporal").innerHTML =
       `◈ Spacetime: <b>${space}</b> (${E.stabilityBand(space)}) · ` +
-      `Heat: <b>${ht}</b> (${E.heatTier(ht)}) · ` +
+      `Heat: <b>${ht}</b>/${E.huntThreshold(world)} (${E.heatTier(ht)}) · ` +
       `Trust Mesh: <b>${tr}</b> (${E.trustBand(tr)})` +
-      (E.isHunted(timeline) ? ' · <b style="color:var(--danger)">⚠ Quantum Liquidators deployed</b>' : "");
+      (E.isHunted(timeline, world) ? ' · <b style="color:var(--danger)">⚠ Quantum Liquidators deployed</b>' : "");
 
     const zones = E.anomalies(timeline);
     const eras = Object.keys(zones);
@@ -95,16 +99,42 @@
     for (const g of E.BIO_SOCIAL)
       bBox.appendChild(bar(g, world.bio_social[g], "var(--gold)", world.bio_social[g] + "%"));
 
+    // Blocs nobody voted into being — derived from the world, never chosen.
+    // Drift against the untouched timeline is the readable part, so it is shown.
+    const blocs = E.powerBlocs(world);
+    const pBox = $("powers");
+    pBox.innerHTML = "";
+    for (const p of E.POWERS) {
+      const drift = blocs[p] - E.POWER_BASE[p];
+      const sign = drift > 0 ? "+" : "";
+      pBox.appendChild(bar(p, blocs[p], "var(--cyan)",
+        `${blocs[p]} ${drift ? `(${sign}${drift})` : ""}`));
+    }
+    const top = E.ascendantPower(world);
+    $("ascendant").innerHTML =
+      `▲ Ascendant: <b>${E.POWER_NAMES[top]}</b> — ${E.POWER_FLAVOR[top]}` +
+      `<br>⚙ Automation index: <b>${E.automationIndex(world)}</b>`;
+
     const creds = E.credBalance(timeline, world);
+    const strain = E.bioStrain(timeline);
     $("wallet").innerHTML =
       `⌬ Energy Creds: <b>${creds}</b> ` +
-      `(allowance ${E.allowance(timeline, world)}, drawn ${E.spent(timeline)})`;
+      `(allowance ${E.allowance(timeline, world)}, drawn ${E.spent(timeline)})` +
+      `<br>⚡ Fusion grid: <b>${E.gridYield(world) >= 0 ? "+" : ""}${E.gridYield(world)}</b> ` +
+      `charge · timeline divergence <b>${E.divergence(timeline)}</b>` +
+      // The one line about the operative's body rather than their record.
+      `<br>⚕ Body: <b>${E.bioBand(strain)}</b> (strain ${strain}) · ` +
+      `${E.installed(timeline).length}/${E.AUGMENTS.length} augments · ` +
+      `lifespan <b>${E.lifespan(timeline)}</b>y`;
 
     $("act-rewind").disabled = timeline.length === 0;
-    const canJump = charge >= E.jumpCost(n);
+    // Eras are priced differently now, so the button asks about the cheapest
+    // door and quotes it — "no charge" means no era at all is reachable.
+    const cheapest = Math.min(...E.ERAS.map((y) => E.jumpCost(y, timeline)));
+    const canJump = charge >= cheapest;
     $("act-jump").disabled = !canJump;
     $("act-jump").textContent = canJump
-      ? `⟲ Chronos Jump (−${E.jumpCost(n)})`
+      ? `⟲ Chronos Jump (from −${cheapest})`
       : "⟲ No charge";
   }
 
@@ -150,15 +180,16 @@
   }
 
   function jumpFlow() {
-    const n = E.jumps(timeline).length;
+    const have = E.charge(timeline, world);
     openDrawer("Chronos Jump — choose an era", (d) => {
       const grid = document.createElement("div");
       grid.className = "era-grid";
       for (const y of E.ERAS) {
-        // A torn era demands a surcharge on top of the ordinary jump cost.
+        // Era distance, divergence and any scar are all inside jumpCost, so
+        // the button shows exactly what will leave the batteries.
         const severity = E.anomalySeverity(y, timeline);
-        const cost = E.jumpCost(n) + E.jumpSurcharge(y, timeline);
-        const affordable = E.charge(timeline) >= cost;
+        const cost = E.jumpCost(y, timeline);
+        const affordable = have >= cost;
         const b = document.createElement("button");
         b.className = "btn";
         b.innerHTML = severity
@@ -166,8 +197,8 @@
           : `${y}<small> −${cost}</small>`;
         b.disabled = !affordable;
         b.title = affordable
-          ? `Costs ${cost} charge`
-          : `Needs ${cost} charge — you have ${E.charge(timeline)}`;
+          ? `Costs ${cost} charge (${E.eraReach(y)} era-steps back)`
+          : `Needs ${cost} charge — you have ${have}`;
         b.onclick = () => pickChoice(y);
         grid.appendChild(b);
       }
@@ -175,12 +206,12 @@
     });
   }
 
-  function marketFlow() {
-    openDrawer("Market — Energy Creds", (d) => {
-      d.insertAdjacentHTML("beforeend",
-        `<p class="narrative-flash">⌬ Balance: ${E.credBalance(timeline, world)} creds · ` +
-        `${E.trustBand(E.trustMesh(timeline))} standing</p>`);
-      for (const offer of E.offers(timeline, world)) {
+  // Both boards are the same wallet: the market spends on the run, the clinic
+  // on the operative. One builder, two service lists (see engine.js).
+  function boardFlow(title, header, board) {
+    openDrawer(title, (d) => {
+      d.insertAdjacentHTML("beforeend", `<p class="narrative-flash">${header}</p>`);
+      for (const offer of board) {
         const b = document.createElement("button");
         b.className = "choice";
         b.innerHTML = `<b>${offer.service.name} — ${offer.price} creds</b>` +
@@ -192,16 +223,40 @@
     });
   }
 
+  function marketFlow() {
+    boardFlow("Market — Energy Creds",
+      `⌬ Balance: ${E.credBalance(timeline, world)} creds · ` +
+      `${E.trustBand(E.trustMesh(timeline))} standing`,
+      E.offers(timeline, world));
+  }
+
+  function clinicFlow() {
+    const strain = E.bioStrain(timeline);
+    boardFlow("Bio-clinic — augments & recovery",
+      `⌬ Balance: ${E.credBalance(timeline, world)} creds · ` +
+      `body <b>${E.bioBand(strain)}</b> (strain ${strain}, lifespan ${E.lifespan(timeline)}y)`,
+      E.clinicOffers(timeline, world));
+  }
+
   function buy(offer) {
     const action = E.CHOICE_BY_ID[offer.service.id];
+    const clinical = !!E.AUGMENT_BY_ID[action.id] || action.id === E.POD_ID;
     timeline.push(action);
-    // Purchases never rewrite the world — only charge, heat and the wallet move.
-    openDrawer("Purchase", (d) => {
+    // Purchases never rewrite the world — only the operative moves. A clinic
+    // visit moves a different set of numbers than a market run, so it reports
+    // the body and the standing it just cost.
+    openDrawer(clinical ? "Bio-clinic" : "Purchase", (d) => {
+      const strain = E.bioStrain(timeline);
       d.insertAdjacentHTML("beforeend",
         `<p class="narrative-flash">» ${action.narrative}</p>` +
         `<div class="quest-field"><span>Paid</span> ${offer.price} creds</div>` +
         `<div class="quest-field"><span>Balance</span> ${E.credBalance(timeline, world)} creds</div>` +
-        `<div class="quest-field"><span>Charge</span> ${E.charge(timeline)}/${E.MAX_ENERGY}</div>` +
+        (clinical
+          ? `<div class="quest-field"><span>Body</span> ${E.bioBand(strain)} (strain ${strain})</div>` +
+            `<div class="quest-field"><span>Lifespan</span> ${E.lifespan(timeline)} years</div>` +
+            `<div class="quest-field"><span>Trust Mesh</span> ${E.trustMesh(timeline)} (${E.trustBand(E.trustMesh(timeline))})</div>`
+          : "") +
+        `<div class="quest-field"><span>Charge</span> ${E.charge(timeline, world)}/${E.batteryCeiling(world, timeline)}</div>` +
         `<div class="quest-field"><span>Heat</span> ${E.heat(timeline)} (${E.heatTier(E.heat(timeline))})</div>`);
     });
     render();
@@ -334,6 +389,7 @@
     $("act-quest").onclick = questFlow;
     $("act-laylow").onclick = layLowFlow;
     $("act-market").onclick = marketFlow;
+    $("act-clinic").onclick = clinicFlow;
     $("act-timeline").onclick = timelineFlow;
     $("act-rewind").onclick = rewind;
     $("act-reset").onclick = reset;

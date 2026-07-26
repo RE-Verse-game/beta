@@ -183,7 +183,44 @@
     requires: [], blocked_by: [],
   };
 
-  const PRESENT_ACTIONS = [LAY_LOW, BUY_BATTERY_BOOST, BUY_MESH_SCRUB];
+  // Bio-clinic actions — the present-day entries that change the *operative*
+  // rather than Ukraine. The tree and its costs live in the augments section.
+  const clinicAction = (id, title, description, narrative) => ({
+    id, era: PRESENT, title, description,
+    deltas: {}, faction_deltas: {}, flags: [], narrative,
+    requires: [], blocked_by: [],
+  });
+  const INSTALL_LONGEVITY_LATTICE = clinicAction(
+    "install_longevity_lattice", "Install a longevity lattice",
+    "Have a lattice grown through the skeleton — the frame the rest bolts to.",
+    "The lattice takes root through your bones. Decades you had not counted on settle in."
+  );
+  const INSTALL_NEURAL_GOVERNOR = clinicAction(
+    "install_neural_governor", "Install a neural governor",
+    "Let a governor smooth the spikes a Chronos Jump leaves in your signature.",
+    "The governor comes online. To the Mesh, your passages through the continuum read as weather."
+  );
+  const INSTALL_FUSION_WEAVE = clinicAction(
+    "install_fusion_weave", "Install a fusion cell weave",
+    "Thread grid-grade cells through the chest cavity — carry your own charge.",
+    "Cells thread through your chest and warm. You are, in a small way, part of the grid now."
+  );
+  const INSTALL_CHRONO_MARROW = clinicAction(
+    "install_chrono_marrow", "Install chrono-stabilised marrow",
+    "Rebuild the marrow to absorb wormhole shear instead of passing it on.",
+    "They replace your marrow while you watch. The shear of the next jump lands somewhere softer."
+  );
+  const USE_RECOVERY_POD = clinicAction(
+    "use_recovery_pod", "Use a recovery pod",
+    "Sleep off the damage in a pod until the Looped markers fade back down.",
+    "The pod closes over you. Hours later the tremor is gone and the mirror looks like you again."
+  );
+
+  const PRESENT_ACTIONS = [
+    LAY_LOW, BUY_BATTERY_BOOST, BUY_MESH_SCRUB,
+    INSTALL_LONGEVITY_LATTICE, INSTALL_NEURAL_GOVERNOR, INSTALL_FUSION_WEAVE,
+    INSTALL_CHRONO_MARROW, USE_RECOVERY_POD,
+  ];
 
   const CHOICE_BY_ID = {};
   for (const y of ERAS) for (const c of CHOICES[y]) CHOICE_BY_ID[c.id] = c;
@@ -298,17 +335,91 @@
     return ["Fractured Timeline", "An unstable, in-between reality that could tip either way."];
   }
 
-  // ---- energy ------------------------------------------------------------
-  const MAX_ENERGY = 120, BASE_COST = 20, STRAIN = 5;
-  const jumpCost = (n) => BASE_COST + STRAIN * n;
-  const energy = (n) => MAX_ENERGY - (BASE_COST * n + (STRAIN * n * (n - 1)) / 2);
-  const canJump = (n) => energy(n) >= jumpCost(n);
+  // ---- powers (emergent blocs, mirrors reverse/powers.py) -----------------
+  // The four powers nobody votes into being: derived from the world the way
+  // regions and the bio-social split are, never moved by a choice's deltas.
+  const POWERS = ["resistance", "liquidators", "synergists", "cartels"];
+  const POWER_NAMES = {
+    resistance: "Right-to-Work Resistance",
+    liquidators: "Quantum Liquidators",
+    synergists: "DIYA-OMEGA Synergists",
+    cartels: "Cyber-Oligarch Cartels",
+  };
+  const POWER_FLAVOR = {
+    resistance: "Picket lines and sabotage cells — Canton argues about who gets to work.",
+    liquidators: "Predictive sweeps run the streets; the Network polices its own future.",
+    synergists: "Civic assemblies and the Network pull the same way — governance feels effortless.",
+    cartels: "Contracts are written between the smart-contracts; access has an owner again.",
+  };
+  // Exactly what the untouched Autonomous Hegemony yields — the offsets below
+  // are read against these, so they are constants, not magic numbers.
+  const AUTOMATION_BASE = 58;
+  const POWER_BASE = { resistance: 15, liquidators: 55, synergists: 60, cartels: 12 };
+
+  // 0-100: how much of Canton's work and governance runs without human hands.
+  function automationIndex(ws) {
+    const f = ws.flags;
+    return clampVal(floorDiv(ws.ai_autonomy * 3 + ws.bio_social.synths * 2, 5)
+      + (f.has("singularity") ? 8 : 0)
+      + (f.has("upload_commons") ? 5 : 0)
+      - (f.has("regrounded") ? 10 : 0)
+      - (f.has("ai_rights_curbed") ? 6 : 0));
+  }
+
+  function powerBlocs(ws) {
+    const f = ws.flags;
+    const automation = automationIndex(ws);
+    // Machines took the work; the surplus and the vote were kept from you.
+    const resistance = POWER_BASE.resistance
+      + floorDiv(automation - AUTOMATION_BASE, 2)
+      + floorDiv(85 - ws.prosperity, 3)
+      + floorDiv(75 - ws.freedom, 4)
+      + (f.has("ai_rights_curbed") ? 10 : 0)
+      + (f.has("looped_purged") ? 8 : 0)
+      - (f.has("regrounded") ? 6 : 0);
+    // Pre-crime is their mandate; abolishing it takes the mandate away.
+    const liquidators = POWER_BASE.liquidators
+      + floorDiv(ws.ai_autonomy - 80, 2)
+      + floorDiv(75 - ws.freedom, 3)
+      + (f.has("singularity") ? 10 : 0)
+      - (f.has("data_rights") ? 8 : 0)
+      - (f.has("precrime_abolished") ? 30 : 0);
+    // A Network that visibly delivers; graft is what discredits it.
+    const synergists = POWER_BASE.synergists
+      + floorDiv(ws.prosperity - 85, 2)
+      + floorDiv(10 - ws.corruption, 2)
+      + (f.has("ai_rights_ratified") ? 8 : 0)
+      + (f.has("energy_commons") ? 6 : 0)
+      - (f.has("ai_rights_curbed") ? 12 : 0);
+    // Capital returns through the gaps the Network leaves behind.
+    const cartels = POWER_BASE.cartels
+      + floorDiv((ws.corruption - 10) * 2, 3)
+      + floorDiv(80 - ws.ai_autonomy, 3)
+      + (f.has("energy_cartel") ? 20 : 0)
+      - (f.has("energy_commons") ? 6 : 0)
+      - (f.has("data_rights") ? 5 : 0);
+    const values = [resistance, liquidators, synergists, cartels];
+    const out = {};
+    POWERS.forEach((p, i) => { out[p] = clampVal(values[i]); });
+    return out;
+  }
+
+  // Strongest emergent power; ties break by the fixed POWERS order.
+  function ascendantPower(ws) {
+    const blocs = powerBlocs(ws);
+    let best = POWERS[0];
+    for (const p of POWERS) if (blocs[p] > blocs[best]) best = p;
+    return best;
+  }
 
   // ---- temporal (heat + spacetime stability, mirrors reverse/temporal.py) --
   const HEAT_TIERS = [
     [38, "Liquidation Order"], [26, "Hunted"], [16, "Flagged"], [8, "Logged"], [0, "Unnoticed"],
   ];
   const HUNTED_AT = 26;
+  // When the squads deploy is not fixed: it bends with how strong the
+  // Liquidator bloc grew in the timeline you built (see powerBlocs above).
+  const LIQUIDATOR_PIVOT = 55, HUNT_SHIFT = 5, HUNT_FLOOR = 8, HUNT_CEILING = 44;
   const STABILITY_BANDS = [
     [80, "coherent"], [55, "strained"], [30, "fraying"], [0, "critical anomaly"],
   ];
@@ -371,7 +482,12 @@
     for (const [t, label] of HEAT_TIERS) if (score >= t) return label;
     return "Unnoticed";
   }
-  const isHunted = (timeline) => heat(timeline) >= HUNTED_AT;
+  // Heat at which Liquidator squads deploy, given who holds this Canton.
+  function huntThreshold(ws) {
+    const shifted = HUNTED_AT - floorDiv(powerBlocs(ws).liquidators - LIQUIDATOR_PIVOT, HUNT_SHIFT);
+    return Math.max(HUNT_FLOOR, Math.min(HUNT_CEILING, shifted));
+  }
+  const isHunted = (timeline, ws) => heat(timeline) >= huntThreshold(ws);
   function stability(timeline) {
     const strain = eraStrain(timeline);
     let total = 0;
@@ -382,6 +498,141 @@
     for (const [t, label] of STABILITY_BANDS) if (value >= t) return label;
     return "critical anomaly";
   }
+
+  // ---- augments (bio-hacking progression, mirrors reverse/augments.py) ----
+  // The one axis that changes the operative instead of the world. Sits after
+  // temporal because riding a torn era is what damages a body, and before
+  // energy/trust because those are the systems the tree buys modifiers to.
+  const BASE_LIFESPAN = 150, ANOMALY_STRAIN = 4, POD_RELIEF = 14;
+  const POD_ID = "use_recovery_pod", POD_PRICE = 30;
+  // What each augment buys, as offsets against the owning system's constant.
+  const GOVERNOR_EROSION = 1, WEAVE_CEILING = 22, MARROW_DIVISOR = 18;
+
+  const BIO_BANDS = [[45, "Looped"], [30, "Synthetic"], [15, "Augmented"], [0, "Pure"]];
+  // Standing the Mesh withholds from a body it no longer reads as baseline
+  // human — augments cost trust, trust prices services, and round it goes.
+  const BAND_TRUST_PENALTY = { Pure: 0, Augmented: 2, Synthetic: 7, Looped: 15 };
+
+  const AUGMENTS = [
+    { id: "install_longevity_lattice", name: "Longevity lattice", price: 34,
+      strain: 9, lifespan: 30,
+      effect: "+30 years — the frame every other augment is bolted to",
+      requires: [] },
+    { id: "install_neural_governor", name: "Neural governor", price: 38,
+      strain: 11, lifespan: 5,
+      effect: `jumps erode ${GOVERNOR_EROSION} trust instead of 2 — your temporal `
+        + "signature reads as noise",
+      requires: ["install_longevity_lattice"] },
+    { id: "install_fusion_weave", name: "Fusion cell weave", price: 44,
+      strain: 12, lifespan: 8,
+      effect: `+${WEAVE_CEILING} battery ceiling — you carry a slice of the grid`,
+      requires: ["install_longevity_lattice"] },
+    // The deep node: only a governed nervous system survives a marrow rebuild.
+    { id: "install_chrono_marrow", name: "Chrono-stabilised marrow", price: 52,
+      strain: 16, lifespan: 12,
+      effect: `wormhole shear absorbed: divergence divisor ${MARROW_DIVISOR} instead of 12`,
+      requires: ["install_neural_governor"] },
+  ];
+  const AUGMENT_BY_ID = {};
+  for (const a of AUGMENTS) AUGMENT_BY_ID[a.id] = a;
+
+  const installed = (timeline) =>
+    timeline.filter((c) => AUGMENT_BY_ID[c.id]).map((c) => c.id);
+  const hasAugment = (id, timeline) =>
+    !!AUGMENT_BY_ID[id] && timeline.some((c) => c.id === id);
+
+  // Damage taken from jumping into eras that were already torn, read at the
+  // moment of each jump — a later rift cannot have damaged an earlier passage.
+  function anomalyExposure(timeline) {
+    let total = 0;
+    timeline.forEach((c, i) => {
+      if (c.era !== PRESENT)
+        total += ANOMALY_STRAIN * anomalySeverity(c.era, timeline.slice(0, i));
+    });
+    return total;
+  }
+
+  function bioStrain(timeline) {
+    let installs = 0;
+    for (const id of installed(timeline)) installs += AUGMENT_BY_ID[id].strain;
+    const pods = timeline.filter((c) => c.id === POD_ID).length;
+    return Math.max(0, installs + anomalyExposure(timeline) - POD_RELIEF * pods);
+  }
+  function bioBand(strain) {
+    for (const [t, label] of BIO_BANDS) if (strain >= t) return label;
+    return "Pure";
+  }
+  const bioTrustPenalty = (timeline) => BAND_TRUST_PENALTY[bioBand(bioStrain(timeline))];
+
+  // Baseline + what the tree granted - what it cost. Only the lattice pays for
+  // itself in years; the pod is how the others are paid back.
+  function lifespan(timeline) {
+    let granted = 0;
+    for (const id of installed(timeline)) granted += AUGMENT_BY_ID[id].lifespan;
+    return BASE_LIFESPAN + granted - bioStrain(timeline);
+  }
+
+  const ceilingBonus = (timeline) =>
+    hasAugment("install_fusion_weave", timeline) ? WEAVE_CEILING : 0;
+
+  // Body-side gating only — creds and standing are the economy's business.
+  function installReason(augment, timeline) {
+    if (hasAugment(augment.id, timeline)) return "already installed";
+    const missing = augment.requires
+      .filter((r) => !hasAugment(r, timeline))
+      .map((r) => AUGMENT_BY_ID[r].name);
+    return missing.length ? `needs ${missing.join(" and ")}` : "";
+  }
+  const podReason = (timeline) =>
+    bioStrain(timeline) > 0 ? "" : "your body is undamaged";
+
+  // ---- energy v2 (quantum batteries, mirrors reverse/energy.py) -----------
+  // Sits after temporal because a jump's price includes the anomaly surcharge
+  // of the era it lands in — one authoritative cost, checked and billed alike.
+  const MAX_ENERGY = 150, BASE_COST = 18, DISTANCE_COST = 6;
+  const DIVERGENCE_DIVISOR = 12, GRID_YIELD_CAP = 18;
+
+  // How many era-steps back from the present an era sits: 1 for the nearest.
+  const eraReach = (era) => ERAS.length - ERAS.indexOf(era);
+  const distanceCost = (era) => DISTANCE_COST * (eraReach(era) - 1);
+
+  // How loudly history has been edited so far. Present-day actions never touch
+  // the past, so they cost the continuum nothing.
+  function divergence(timeline) {
+    let total = 0;
+    for (const c of timeline) if (c.era !== PRESENT) total += audacity(c);
+    return total;
+  }
+
+  // Chrono-stabilised marrow absorbs the wormhole's shear, so a loud timeline
+  // stops compounding as steeply (see the augments section above).
+  const divergenceDivisor = (timeline) =>
+    hasAugment("install_chrono_marrow", timeline) ? MARROW_DIVISOR : DIVERGENCE_DIVISOR;
+
+  const jumpCost = (era, timeline) =>
+    BASE_COST + distanceCost(era) + floorDiv(divergence(timeline), divergenceDivisor(timeline))
+    + jumpSurcharge(era, timeline);
+
+  // Each jump priced at the divergence and scars that existed at that moment,
+  // so a later edit cannot retroactively re-price an earlier jump.
+  function chargeSpent(timeline) {
+    let total = 0;
+    for (let i = 0; i < timeline.length; i++)
+      if (timeline[i].era !== PRESENT) total += jumpCost(timeline[i].era, timeline.slice(0, i));
+    return total;
+  }
+
+  // The butterfly reaching back to the player: a healthier Canton runs a
+  // healthier fusion grid, and a healthier grid holds more charge.
+  function gridYield(ws) {
+    const raw = floorDiv(ws.prosperity - 85, 2) + floorDiv(ws.stability - 80, 3)
+      + floorDiv(ws.ecology - 80, 4);
+    return Math.max(-GRID_YIELD_CAP, Math.min(GRID_YIELD_CAP, raw));
+  }
+  // Two contributions, one from the world and one from the body: the grid's
+  // health, plus whatever cells the operative had woven into their own chest.
+  const batteryCeiling = (ws, timeline = []) =>
+    MAX_ENERGY + gridYield(ws) + ceilingBonus(timeline);
 
   // ---- trust (Social Trust Mesh, mirrors reverse/trust.py) -----------------
   const BASE_TRUST = 60, JUMP_EROSION = 2, LAY_LOW_COST = 8;
@@ -396,12 +647,20 @@
     for (const [m, d] of Object.entries(choice.deltas)) v += m === "corruption" ? -d : d;
     return v;
   }
+  // A neural governor launders the operative's temporal signature, so the Mesh
+  // takes less standing for each jump made after it went in.
+  const jumpErosion = (timeline) =>
+    hasAugment("install_neural_governor", timeline) ? GOVERNOR_EROSION : JUMP_EROSION;
+
   function trustMesh(timeline) {
     let score = BASE_TRUST;
-    for (const c of timeline) {
+    timeline.forEach((c, i) => {
       if (c.era === PRESENT) score -= TRUST_COST[c.id] || 0;
-      else score += floorDiv(civicValue(c), 10) - JUMP_EROSION;
-    }
+      else score += floorDiv(civicValue(c), 10) - jumpErosion(timeline.slice(0, i));
+    });
+    // What the operative has *become* is withheld at the end: the Mesh reads a
+    // Looped body with measurably less warmth.
+    score -= bioTrustPenalty(timeline);
     return clampVal(score);
   }
   function trustBand(score) {
@@ -420,7 +679,8 @@
   };
   const BAND_ORDER = ["Pariah", "Suspect", "Watched", "Trusted", "Exemplar"];
 
-  const SERVICES = [
+  // The [m] market: what the grid and the grey market sell for the *run*.
+  const MARKET_SERVICES = [
     { id: "buy_battery_boost", name: "Fusion-grid battery boost", base_price: 40,
       effect: `+${BOOST_CHARGE} quantum charge`,
       grey_market: false, min_band: "Watched", max_band: null },
@@ -430,6 +690,22 @@
       effect: "sheds Temporal Heat without spending trust",
       grey_market: true, min_band: null, max_band: "Trusted" },
   ];
+
+  // The bio-clinic: what the same wallet buys for the *operative*. Built from
+  // the augment tree rather than re-typed, so price, effect and prerequisites
+  // have exactly one home. Medicine is universal in Canton — no band gates —
+  // but the Mesh modifier still prices it, which is how standing bites.
+  const CLINIC_SERVICES = AUGMENTS.map((a) => ({
+    id: a.id, name: a.name, base_price: a.price, effect: a.effect,
+    grey_market: false, min_band: null, max_band: null,
+  })).concat([
+    { id: POD_ID, name: "Recovery-pod session", base_price: POD_PRICE,
+      effect: `flushes ${POD_RELIEF} bio-strain`,
+      grey_market: false, min_band: null, max_band: null },
+  ]);
+
+  // Everything the wallet can be spent on — the ledger walks this, not a board.
+  const SERVICES = MARKET_SERVICES.concat(CLINIC_SERVICES);
   const SERVICE_BY_ID = {};
   for (const s of SERVICES) SERVICE_BY_ID[s.id] = s;
 
@@ -458,10 +734,14 @@
 
   const credBalance = (timeline, ws) => Math.max(0, allowance(timeline, ws) - spent(timeline));
 
-  function charge(timeline) {
+  // The ceiling is the fusion grid's, not a constant: a healthier Canton holds
+  // a bigger charge (see batteryCeiling).
+  function charge(timeline, ws) {
+    const ceiling = batteryCeiling(ws, timeline);
     const boosts = timeline.filter((c) => c.id === "buy_battery_boost").length;
-    return Math.min(MAX_ENERGY, energy(jumps(timeline).length) + BOOST_CHARGE * boosts);
+    return Math.max(0, Math.min(ceiling, ceiling - chargeSpent(timeline) + BOOST_CHARGE * boosts));
   }
+  const canJump = (era, timeline, ws) => charge(timeline, ws) >= jumpCost(era, timeline);
 
   function bandAllows(service, band) {
     const rank = BAND_ORDER.indexOf(band);
@@ -470,7 +750,18 @@
     return true;
   }
 
+  // Why the operative's *body* refuses a service: prerequisites, a double
+  // install, an undamaged body. Creds and standing are handled below.
+  function bodyReason(service, timeline) {
+    const augment = AUGMENT_BY_ID[service.id];
+    if (augment) return installReason(augment, timeline);
+    if (service.id === POD_ID) return podReason(timeline);
+    return "";
+  }
+
   function availability(service, timeline, ws) {
+    const blocked = bodyReason(service, timeline);
+    if (blocked) return [false, blocked];
     const band = trustBand(trustMesh(timeline));
     if (!bandAllows(service, band)) {
       if (service.min_band && BAND_ORDER.indexOf(band) < BAND_ORDER.indexOf(service.min_band))
@@ -482,11 +773,13 @@
     return [true, ""];
   }
 
-  // The market board: every service as {service, price, available, reason}.
-  const offers = (timeline, ws) => SERVICES.map((s) => {
+  // A board: each service as {service, price, available, reason}.
+  const boardFor = (services, timeline, ws) => services.map((s) => {
     const [available, reason] = availability(s, timeline, ws);
     return { service: s, price: price(s, timeline), available, reason };
   });
+  const offers = (timeline, ws) => boardFor(MARKET_SERVICES, timeline, ws);
+  const clinicOffers = (timeline, ws) => boardFor(CLINIC_SERVICES, timeline, ws);
 
   // ---- factions ----------------------------------------------------------
   const STANDINGS = [
@@ -566,6 +859,9 @@
     return {
       trust, trust_band: trustBand(trust),
       heat: hot, heat_tier: heatTier(hot),
+      // Both read the world as well as the log: the Canton you made decides
+      // how loud you may be before squads deploy.
+      hunt_threshold: huntThreshold(ws), hunted: isHunted(timeline, ws),
       spacetime: space, spacetime_band: stabilityBand(space),
       anomalies: Object.keys(zones).map(Number).sort((a, b) => a - b).map((era) => ({
         era, severity: zones[era], label: anomalyLabel(zones[era]),
@@ -573,6 +869,19 @@
       creds: credBalance(timeline, ws),
       creds_allowance: allowance(timeline, ws),
       creds_spent: spent(timeline),
+      // The ceiling is the fusion grid's *and* the operative's own hardware, so
+      // it moves with the world and with the augments worn.
+      charge: charge(timeline, ws),
+      charge_ceiling: batteryCeiling(ws, timeline),
+      divergence: divergence(timeline),
+      // The bio-hacking axis: the only thing here describing the body rather
+      // than the record.
+      body: {
+        strain: bioStrain(timeline),
+        band: bioBand(bioStrain(timeline)),
+        lifespan: lifespan(timeline),
+        augments: installed(timeline),
+      },
     };
   }
 
@@ -584,6 +893,13 @@
       seed,
       choices: timeline.map((c) => c.id),
       world: Object.assign({}, ws, { flags: Array.from(ws.flags).sort(), schema: SCHEMA_VERSION }),
+      // Derived from the world rather than stored on it, so the powers ride
+      // alongside the serialized state instead of inside it (no schema bump).
+      powers: {
+        automation: automationIndex(ws),
+        blocs: powerBlocs(ws),
+        ascendant: ascendantPower(ws),
+      },
       operative: operativeState(timeline, ws),
       ending: { archetype: name, blurb },
     };
@@ -616,14 +932,26 @@
     PRESENT, LAY_LOW, BUY_BATTERY_BOOST, BUY_MESH_SCRUB, PRESENT_ACTIONS, jumps,
     baseline, availableChoices, accumulatedFlags,
     simulate, archetype,
-    MAX_ENERGY, jumpCost, energy, canJump,
-    audacity, heat, heatTier, isHunted, HUNTED_AT, stability, stabilityBand,
+    MAX_ENERGY, BASE_COST, DISTANCE_COST, DIVERGENCE_DIVISOR, GRID_YIELD_CAP,
+    eraReach, distanceCost, divergence, jumpCost, chargeSpent,
+    gridYield, batteryCeiling, canJump,
+    POWERS, POWER_NAMES, POWER_FLAVOR, POWER_BASE, AUTOMATION_BASE,
+    automationIndex, powerBlocs, ascendantPower,
+    audacity, heat, heatTier, isHunted, huntThreshold, HUNTED_AT,
+    LIQUIDATOR_PIVOT, HUNT_SHIFT, HUNT_FLOOR, HUNT_CEILING,
+    stability, stabilityBand,
     ANOMALY_SURCHARGE, ANOMALY_HEAT, eraStrain, anomalies, anomalyLabel,
     anomalySeverity, jumpSurcharge,
-    BASE_TRUST, LAY_LOW_COST, civicValue, trustMesh, trustBand, canLayLow,
+    BASE_TRUST, LAY_LOW_COST, JUMP_EROSION, civicValue, trustMesh, trustBand,
+    canLayLow, jumpErosion,
+    BASE_LIFESPAN, ANOMALY_STRAIN, POD_RELIEF, POD_ID, POD_PRICE,
+    GOVERNOR_EROSION, WEAVE_CEILING, MARROW_DIVISOR, BIO_BANDS, BAND_TRUST_PENALTY,
+    AUGMENTS, AUGMENT_BY_ID, installed, hasAugment, anomalyExposure, bioStrain,
+    bioBand, bioTrustPenalty, lifespan, ceilingBonus, installReason, podReason,
+    divergenceDivisor,
     CIVIC_ALLOWANCE, JUMP_DRAW, BOOST_CHARGE, BAND_MODIFIER, BAND_ORDER,
-    SERVICES, SERVICE_BY_ID, allowance, price, spent, credBalance, charge,
-    bandAllows, availability, offers,
+    SERVICES, MARKET_SERVICES, CLINIC_SERVICES, SERVICE_BY_ID, allowance, price,
+    spent, credBalance, charge, bandAllows, availability, offers, clinicOffers,
     reputation, standing, patronFaction, dominantBloc, blocEpithet, FACTION_FLAVOR,
     generateQuest, ENDINGS, flavoredEnding, isVictory, narrate, PROLOGUE,
     operativeState, snapshot,

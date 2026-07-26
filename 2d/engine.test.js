@@ -14,10 +14,59 @@ check("baseline 2226 is a Solar Utopia", () => {
   assert.strictEqual(E.archetype(E.simulate([]))[0], "Solar Utopia");
 });
 
-check("energy costs 20/25/30/35 and blocks the 5th jump", () => {
-  assert.deepStrictEqual([0, 1, 2, 3].map(E.jumpCost), [20, 25, 30, 35]);
-  assert.strictEqual(E.energy(0), 120);
-  assert.strictEqual(E.canJump(4), false);
+check("the deep past costs more than the near past", () => {
+  // Value-identical to tests/test_energy.py: era distance prices the picker.
+  assert.deepStrictEqual(E.ERAS.map(E.eraReach), [4, 3, 2, 1]);
+  assert.deepStrictEqual(E.ERAS.map((y) => E.jumpCost(y, [])), [36, 30, 24, 18]);
+  assert.strictEqual(E.jumpCost(E.ERAS[3], []), E.BASE_COST);
+});
+
+check("divergence counts audacity, not jumps", () => {
+  const PFC = E.CHOICE_BY_ID["protect_first_code"];
+  assert.strictEqual(E.divergence([]), 0);
+  assert.strictEqual(E.divergence([PFC]), E.audacity(PFC));
+  assert.strictEqual(E.divergence([PFC, E.LAY_LOW]), E.audacity(PFC));
+  // A loud edit prices the next jump above a quiet one.
+  const loud = [E.CHOICE_BY_ID["restrict_ai_rights"]];
+  const quiet = [E.CHOICE_BY_ID["charter_data_rights"]];
+  assert.ok(E.jumpCost(2090, loud) > E.jumpCost(2090, quiet));
+});
+
+check("the anomaly surcharge is actually billed", () => {
+  // It used to gate the jump and print in the message, never leaving the batteries.
+  const torn = ["protect_first_code", "full_ai_rights"].map((id) => E.CHOICE_BY_ID[id]);
+  const third = E.chargeSpent(torn.concat([E.CHOICE_BY_ID["restrict_ai_rights"]]))
+              - E.chargeSpent(torn);
+  assert.strictEqual(third, E.jumpCost(2058, torn));
+  assert.ok(third > E.jumpCost(2058, torn.slice(0, 1)));
+});
+
+check("both chains to 2180 stay completable, and the wall still exists", () => {
+  const quiet = ["charter_data_rights", "orbital_solar", "open_mind_upload", "starlight_diaspora"];
+  const loud = ["restrict_ai_rights", "energy_cartel", "purge_loopers", "singular_merge"];
+  for (const ids of [quiet, loud]) {
+    const tl = [];
+    for (const id of ids) {
+      const c = E.CHOICE_BY_ID[id];
+      assert.ok(E.canJump(c.era, tl, E.simulate(tl)), id + " unaffordable");
+      tl.push(c);
+    }
+  }
+  const spent = loud.map((id) => E.CHOICE_BY_ID[id]);
+  const ws = E.simulate(spent);
+  assert.ok(!E.ERAS.some((y) => E.canJump(y, spent, ws)));   // the pacing wall
+  // The surgical route leaves more in the tank than the sweeping one.
+  const q = quiet.map((id) => E.CHOICE_BY_ID[id]);
+  assert.ok(E.charge(q, E.simulate(q)) > E.charge(spent, ws));
+});
+
+check("a healthier Canton holds a bigger charge", () => {
+  assert.strictEqual(E.gridYield(E.baseline()), 0);
+  assert.strictEqual(E.batteryCeiling(E.baseline()), E.MAX_ENERGY);
+  const rich = Object.assign(E.baseline(), { prosperity: 100, stability: 100, ecology: 100 });
+  const poor = Object.assign(E.baseline(), { prosperity: 20, stability: 20, ecology: 20 });
+  assert.ok(E.gridYield(poor) < 0 && E.gridYield(rich) > 0);
+  assert.ok(Math.abs(E.gridYield(poor)) <= E.GRID_YIELD_CAP);
 });
 
 check("cross-era gating unlocks biohacking only after First Code survives", () => {
@@ -96,6 +145,49 @@ check("temporal heat is value-identical to the Python engine", () => {
   assert.strictEqual(E.heat([PFC]), 8);
   assert.strictEqual(E.heatTier(8), "Logged");
   assert.strictEqual(E.heatTier(E.HUNTED_AT), "Hunted");
+});
+
+check("power blocs are value-identical to the Python engine", () => {
+  // Hand-authored numbers, drift-free — exact parity with tests/test_powers.py.
+  const base = E.baseline();
+  assert.strictEqual(E.automationIndex(base), E.AUTOMATION_BASE);
+  assert.deepStrictEqual(E.powerBlocs(base), E.POWER_BASE);
+  assert.strictEqual(E.ascendantPower(base), "synergists");
+});
+
+check("automation drives the resistance, and floors like Python on negatives", () => {
+  const low = Object.assign(E.baseline(), {
+    ai_autonomy: 30, bio_social: { pures: 90, synths: 5, looped: 5 },
+  });
+  const high = Object.assign(E.baseline(), {
+    ai_autonomy: 100, bio_social: { pures: 40, synths: 55, looped: 5 },
+  });
+  assert.ok(E.automationIndex(low) < E.automationIndex(high));
+  assert.ok(E.powerBlocs(low).resistance < E.powerBlocs(high).resistance);
+  // freedom 76 -> (75 - 76) // 4 == -1 in Python; truncation would give 0.
+  assert.strictEqual(
+    E.powerBlocs(Object.assign(E.baseline(), { freedom: 76 })).resistance,
+    E.POWER_BASE.resistance - 1);
+  // corruption 9 -> (9 - 10) * 2 // 3 == -1; truncation would give 0.
+  assert.strictEqual(
+    E.powerBlocs(Object.assign(E.baseline(), { corruption: 9 })).cartels,
+    E.POWER_BASE.cartels - 1);
+});
+
+check("the same heat is hunted in one Canton and not another", () => {
+  const police = Object.assign(E.baseline(), {
+    ai_autonomy: 100, freedom: 10, flags: new Set(["singularity"]),
+  });
+  const blinded = Object.assign(E.baseline(), {
+    flags: new Set(["precrime_abolished", "data_rights"]),
+  });
+  assert.strictEqual(E.huntThreshold(E.baseline()), E.HUNTED_AT);
+  const tl = ["protect_first_code", "full_ai_rights", "restrict_ai_rights"]
+    .map((id) => E.CHOICE_BY_ID[id]);
+  assert.ok(E.huntThreshold(police) <= E.heat(tl));
+  assert.ok(E.heat(tl) < E.huntThreshold(blinded));
+  assert.strictEqual(E.isHunted(tl, police), true);
+  assert.strictEqual(E.isHunted(tl, blinded), false);
 });
 
 check("trust mesh is value-identical to the Python engine", () => {
@@ -197,25 +289,39 @@ check("Energy Creds price official services down and grey-market ones up", () =>
   assert.ok(E.bandAllows(scrub, "Watched") && !E.bandAllows(scrub, "Exemplar"));
   assert.deepStrictEqual(E.availability(boost, [], E.simulate([])), [true, ""]);
   assert.strictEqual(E.availability(boost, sunk, E.simulate(sunk))[0], false);
-  assert.strictEqual(E.offers([], E.simulate([])).length, E.SERVICES.length);
+  // Two boards, one service table: the market sells to the run, the clinic to
+  // the operative, and nothing may go missing from both.
+  const world = E.simulate([]);
+  assert.strictEqual(E.offers([], world).length, E.MARKET_SERVICES.length);
+  assert.strictEqual(E.clinicOffers([], world).length, E.CLINIC_SERVICES.length);
+  assert.strictEqual(E.MARKET_SERVICES.length + E.CLINIC_SERVICES.length,
+    Object.keys(E.SERVICE_BY_ID).length);
 });
 
 check("no dead content: every service is reachable on some legal timeline", () => {
   // Pricing and the wallet are tuned independently, so a service can end up
   // priced out of every balance a player can actually reach (the grey-market
   // scrub was, at base 80). Walk the legal choice-tree and insist otherwise.
+  // Purchases are part of the walk, not just jumps: the clinic's deep nodes are
+  // only reachable *through* earlier purchases, and the chain has to fit inside
+  // one run's wallet or the bottom of the tree is dead content.
   const reachable = new Set();
   let frontier = [[]];
-  for (let depth = 0; depth < 4; depth++) {
-    const following = [];
+  for (let depth = 0; depth < 5; depth++) {
+    const bought = [], following = [];
     for (const tl of frontier) {
       const ws = E.simulate(tl);
-      for (const offer of E.offers(tl, ws))
-        if (offer.available) reachable.add(offer.service.id);
+      for (const offer of E.offers(tl, ws).concat(E.clinicOffers(tl, ws)))
+        if (offer.available) {
+          reachable.add(offer.service.id);
+          bought.push(tl.concat([E.CHOICE_BY_ID[offer.service.id]]));
+        }
       for (const y of E.ERAS)
         for (const c of E.availableChoices(y, tl)) following.push(tl.concat([c]));
     }
-    frontier = following.slice(0, 300);   // breadth cap: the tree fans out fast
+    // Purchase paths first: the breadth cap would otherwise trim exactly the
+    // timelines that spend, which are the ones under test.
+    frontier = bought.concat(following).slice(0, 300);
   }
   for (const id of Object.keys(E.SERVICE_BY_ID))
     assert.ok(reachable.has(id), "unreachable service: " + id);
@@ -233,11 +339,13 @@ check("purchases move charge and heat but never the world or the ledger's past",
   const PFC = id("protect_first_code"), FAR = id("full_ai_rights");
   const tl = [PFC, FAR];
 
-  // Boost tops up charge, capped at a full battery; scrub sheds heat for free.
-  assert.strictEqual(E.charge(tl.concat([E.BUY_BATTERY_BOOST])),
-                     E.charge(tl) + E.BOOST_CHARGE);
+  // Boost tops up charge, capped at the grid's ceiling; scrub sheds heat free.
+  const world = E.simulate(tl);   // purchases never rewrite it, so one world serves both
+  assert.strictEqual(E.charge(tl.concat([E.BUY_BATTERY_BOOST]), world),
+                     E.charge(tl, world) + E.BOOST_CHARGE);
+  const empty = E.simulate([]);
   assert.strictEqual(E.charge([E.BUY_BATTERY_BOOST, E.BUY_BATTERY_BOOST,
-                               E.BUY_BATTERY_BOOST]), E.MAX_ENERGY);
+                               E.BUY_BATTERY_BOOST], empty), E.batteryCeiling(empty));
   assert.ok(E.heat(tl.concat([E.BUY_MESH_SCRUB])) < E.heat(tl));
   assert.strictEqual(E.trustMesh(tl.concat([E.BUY_MESH_SCRUB])), E.trustMesh(tl));
   assert.deepStrictEqual(E.simulate(tl.concat([E.BUY_BATTERY_BOOST])), E.simulate(tl));
@@ -261,14 +369,92 @@ check("snapshot joins world, operative standing and ending deterministically", (
   assert.ok(snap.world.bio_social.pures > 0);
   assert.ok(snap.ending.archetype);
   for (const key of ["trust", "trust_band", "heat", "heat_tier", "spacetime",
-                     "spacetime_band", "anomalies", "creds"])
+                     "spacetime_band", "anomalies", "creds", "hunt_threshold", "hunted"])
     assert.ok(key in snap.operative, key);
+  assert.strictEqual(snap.powers.ascendant, E.ascendantPower(E.simulate(tl)));
+  assert.deepStrictEqual(Object.keys(snap.powers.blocs), E.POWERS);
   assert.deepStrictEqual(E.snapshot(tl), E.snapshot(tl.slice()));
   assert.deepStrictEqual(
     E.operativeState([PFC, E.CHOICE_BY_ID["full_ai_rights"]],
                      E.simulate([PFC, E.CHOICE_BY_ID["full_ai_rights"]])).anomalies,
     [{ era: 2058, severity: 1, label: "rift" }]
   );
+});
+
+check("the augment tree gates on itself and every install is paid for in body", () => {
+  const id = (i) => E.CHOICE_BY_ID[i];
+  const LATTICE = id("install_longevity_lattice"), GOVERNOR = id("install_neural_governor");
+  const WEAVE = id("install_fusion_weave"), MARROW = id("install_chrono_marrow");
+  const tree = [LATTICE, GOVERNOR, WEAVE, MARROW];
+
+  // A pristine operative is unmodified: Pure, baseline lifespan, no penalty.
+  assert.deepStrictEqual(E.installed([]), []);
+  assert.strictEqual(E.bioStrain([]), 0);
+  assert.strictEqual(E.lifespan([]), E.BASE_LIFESPAN);
+  assert.strictEqual(E.bioTrustPenalty([]), 0);
+
+  // The lattice is the root; nothing under it is reachable on a bare body, and
+  // nothing is ever installed twice.
+  assert.strictEqual(E.installReason(E.AUGMENT_BY_ID["install_longevity_lattice"], []), "");
+  assert.ok(E.installReason(E.AUGMENT_BY_ID["install_neural_governor"], [])
+    .includes("Longevity lattice"));
+  assert.ok(E.installReason(E.AUGMENT_BY_ID["install_chrono_marrow"], [LATTICE])
+    .includes("Neural governor"));
+  assert.strictEqual(E.installReason(E.AUGMENT_BY_ID["install_chrono_marrow"],
+    [LATTICE, GOVERNOR]), "");
+  assert.strictEqual(E.installReason(E.AUGMENT_BY_ID["install_longevity_lattice"],
+    [LATTICE]), "already installed");
+
+  // The whole tree is exactly what the codex calls the anomaly-damaged: Looped.
+  assert.strictEqual(E.bioBand(E.bioStrain(tree)), "Looped");
+  assert.strictEqual(E.trustMesh(tree), E.trustMesh([]) - E.BAND_TRUST_PENALTY.Looped);
+});
+
+check("augments buy modifiers to the systems they name, from the moment worn", () => {
+  const id = (i) => E.CHOICE_BY_ID[i];
+  const PFC = id("protect_first_code"), FAR = id("full_ai_rights"), RAR = id("restrict_ai_rights");
+  const LATTICE = id("install_longevity_lattice"), GOVERNOR = id("install_neural_governor");
+  const WEAVE = id("install_fusion_weave"), MARROW = id("install_chrono_marrow");
+  const POD = id("use_recovery_pod");
+
+  // Governor: later jumps erode less standing, earlier ones are untouched.
+  assert.strictEqual(E.jumpErosion([]), E.JUMP_EROSION);
+  assert.strictEqual(E.jumpErosion([LATTICE, GOVERNOR]), E.GOVERNOR_EROSION);
+  const governed = [PFC, LATTICE, GOVERNOR, FAR];
+  assert.strictEqual(E.trustMesh(governed),
+    E.trustMesh([PFC, FAR]) + (E.JUMP_EROSION - E.GOVERNOR_EROSION)
+    - E.bioTrustPenalty(governed));
+
+  // Weave: a wider ceiling is charge in hand, not a bigger number on the HUD.
+  const world = E.simulate([]);
+  assert.strictEqual(E.batteryCeiling(world, [LATTICE, WEAVE]),
+    E.batteryCeiling(world) + E.WEAVE_CEILING);
+  assert.strictEqual(E.charge([LATTICE, WEAVE], world),
+    E.charge([LATTICE], world) + E.WEAVE_CEILING);
+
+  // Marrow: a loud timeline stops compounding as steeply — but only forwards.
+  const loud = [RAR, PFC, FAR], worn = loud.concat([LATTICE, GOVERNOR, MARROW]);
+  assert.strictEqual(E.divergenceDivisor(worn), E.MARROW_DIVISOR);
+  assert.ok(E.jumpCost(2150, worn) < E.jumpCost(2150, loud));
+  assert.strictEqual(E.chargeSpent(worn), E.chargeSpent(loud));
+
+  // Riding a torn era damages the body; the pod is the way back down.
+  assert.strictEqual(E.bioStrain([PFC, FAR]), 0);
+  assert.ok(E.bioStrain([PFC, FAR, RAR]) > 0);
+  const hurt = [LATTICE, GOVERNOR];
+  assert.strictEqual(E.bioStrain(hurt.concat([POD])), E.bioStrain(hurt) - E.POD_RELIEF);
+  assert.strictEqual(E.lifespan(hurt.concat([POD])), E.lifespan(hurt) + E.POD_RELIEF);
+  assert.strictEqual(E.bioStrain([LATTICE, POD, POD, POD]), 0);   // never negative
+
+  // Installs change the operative, never Ukraine — and ride save/replay along
+  // with everything else derived from the log.
+  assert.deepStrictEqual(E.simulate([PFC, FAR].concat([LATTICE, WEAVE, POD])),
+    E.simulate([PFC, FAR]));
+  assert.deepStrictEqual(E.snapshot(governed).operative.body, {
+    strain: E.bioStrain(governed), band: E.bioBand(E.bioStrain(governed)),
+    lifespan: E.lifespan(governed),
+    augments: ["install_longevity_lattice", "install_neural_governor"],
+  });
 });
 
 console.log(passed + " passed");
