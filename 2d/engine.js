@@ -271,6 +271,28 @@
     };
   }
 
+  // The world the choices *say*, with no Butterfly drift on top. Each port
+  // draws that drift from its own host RNG, which is why the parity gate
+  // exempts drifted metrics — so anything that must mean the same thing on
+  // every surface, and must not be decided by cosmetic noise, reads this
+  // instead. The pursuit ladder is the first such caller (see the hunt
+  // section, and reverse/simulator.py).
+  function authoredWorld(timeline) {
+    const ws = baseline();
+    for (const c of timeline) {
+      for (const [m, d] of Object.entries(c.deltas)) ws[m] += d;
+      for (const [f, d] of Object.entries(c.faction_deltas))
+        ws.factions[f] = (ws.factions[f] || 0) + d;
+      for (const fl of c.flags) ws.flags.add(fl);
+    }
+    for (const m of METRICS) ws[m] = clampVal(ws[m]);
+    for (const f of Object.keys(ws.factions)) ws.factions[f] = clampVal(ws.factions[f]);
+    rippleRegions(ws);
+    for (const r of Object.keys(ws.regions)) ws.regions[r] = clampVal(ws.regions[r]);
+    rippleBioSocial(ws);
+    return ws;
+  }
+
   function simulate(timeline, seed = 1337) {
     const ws = baseline();
     for (const c of timeline) {
@@ -608,6 +630,56 @@
     for (const era of Object.keys(strain)) total += strain[era];
     return Math.max(0, 100 - total);
   }
+
+  // ---- the hunt (Temporal Terrorist arc, mirrors reverse/hunt.py) ---------
+  // Crossing the heat threshold used to print a warning and nothing else. This
+  // is the other half: how close the squads have got, and the one way to lose.
+  const PRESSURE_JUMP = 6, PRESSURE_PRESENT = 2, LIQUIDATED_AT = 30;
+  // Smart Dust doing double duty: the air that priced your heat now decides
+  // how fast a cordon tightens.
+  const DUST_TRACKING = { saturated: 3, dense: 1, thin: 0, swept: -2 };
+  // Banked pressure shed by the two actions that were already heat counterplay,
+  // paid for in standing and creds respectively.
+  const PRESSURE_RELIEF = { lay_low: 7, buy_mesh_scrub: 9 };
+  const PURSUIT_STAGES = [
+    [30, "Liquidation"], [18, "Interception"], [8, "Cordon"], [1, "Sweep"], [0, "clear"],
+  ];
+  const STAGE_FLAVOR = {
+    clear: "No squad has your trail.",
+    Sweep: "Predictive sweeps are quartering your districts.",
+    Cordon: "A cordon is tightening — transit logs are being read live.",
+    Interception: "Interception teams are on you; the next flare gives you away.",
+    Liquidation: "The Liquidators have you. The run ends here.",
+  };
+
+  // Reads the authored Canton, so being hunted is never decided by drift.
+  const huntedAt = (timeline) => heat(timeline) >= huntThreshold(authoredWorld(timeline));
+
+  // How close they have got, replayed entry by entry. Each entry is scored
+  // against the state that existed *before* it.
+  function pressure(timeline) {
+    let total = 0;
+    for (let i = 0; i < timeline.length; i += 1) {
+      const c = timeline[i];
+      if (total >= LIQUIDATED_AT) break;
+      const prefix = timeline.slice(0, i);
+      const relief = c.era === PRESENT ? (PRESSURE_RELIEF[c.id] || 0) : 0;
+      if (relief) { total = Math.max(0, total - relief); continue; }
+      if (!huntedAt(prefix)) continue;
+      const base = c.era === PRESENT ? PRESSURE_PRESENT : PRESSURE_JUMP;
+      const seen = DUST_TRACKING[dustBand(effectiveDensity(currentZone(prefix), prefix))];
+      total = Math.max(0, total + base + seen);
+    }
+    return Math.min(total, LIQUIDATED_AT);
+  }
+  function pursuitStage(value) {
+    for (const [t, label] of PURSUIT_STAGES) if (value >= t) return label;
+    return "clear";
+  }
+  const huntStage = (timeline) => pursuitStage(pressure(timeline));
+  const liquidated = (timeline) => pressure(timeline) >= LIQUIDATED_AT;
+  const huntMargin = (timeline) => Math.max(0, LIQUIDATED_AT - pressure(timeline));
+
   function stabilityBand(value) {
     for (const [t, label] of STABILITY_BANDS) if (value >= t) return label;
     return "critical anomaly";
@@ -979,10 +1051,20 @@
     "Cyber-Feudal Collapse": ["▼ CYBER-FEUDAL COLLAPSE", "The AI is silent; cyber-lords carve the ruins into feuds."],
     "Fractured Timeline": ["◇ FRACTURED TIMELINE", "A brittle in-between — nothing has settled, and anything still could."],
   };
+  // The one ending that is not an archetype: it describes the operative, not
+  // Ukraine, and it overrides whatever Canton they left behind.
+  const LIQUIDATED = ["☠ LIQUIDATION ORDER EXECUTED",
+    "A Liquidator squad closes on you mid-jump. Whatever 2226 became, "
+    + "you are not there to see it."];
   const flavoredEnding = (ws) => `${blocEpithet(ws)} ${archetype(ws)[0]}`;
-  // Present-day actions aren't tampering — only real jumps earn the utopia.
+  // How this run ended: the squads outrank the archetype.
+  const endingBanner = (ws, timeline = []) =>
+    (liquidated(timeline) ? LIQUIDATED : ENDINGS[archetype(ws)[0]]);
+  // Present-day actions aren't tampering — only real jumps earn the utopia, and
+  // no run the Liquidators finished is a win however good the Canton looks.
   const isVictory = (ws, timeline) =>
-    jumps(timeline).length > 0 && archetype(ws)[0] === "Solar Utopia";
+    jumps(timeline).length > 0 && archetype(ws)[0] === "Solar Utopia"
+    && !liquidated(timeline);
 
   // ---- snapshot (full schema-v2 view, mirrors reverse/snapshot.py) --------
   function operativeState(timeline, ws) {
@@ -994,6 +1076,14 @@
       // Both read the world as well as the log: the Canton you made decides
       // how loud you may be before squads deploy.
       hunt_threshold: huntThreshold(ws), hunted: isHunted(timeline, ws),
+      // The Temporal Terrorist arc: not *whether* they are after you but how
+      // close they have got, and whether they arrived.
+      pursuit: {
+        pressure: pressure(timeline),
+        stage: huntStage(timeline),
+        caught_at: LIQUIDATED_AT,
+        liquidated: liquidated(timeline),
+      },
       spacetime: space, spacetime_band: stabilityBand(space),
       anomalies: Object.keys(zones).map(Number).sort((a, b) => a - b).map((era) => ({
         era, severity: zones[era], label: anomalyLabel(zones[era]),
@@ -1080,6 +1170,10 @@
     POWERS, POWER_NAMES, POWER_FLAVOR, POWER_BASE, AUTOMATION_BASE,
     automationIndex, powerBlocs, ascendantPower,
     audacity, heat, heatTier, isHunted, huntThreshold, HUNTED_AT,
+    authoredWorld,
+    PRESSURE_JUMP, PRESSURE_PRESENT, LIQUIDATED_AT, DUST_TRACKING,
+    PRESSURE_RELIEF, PURSUIT_STAGES, STAGE_FLAVOR,
+    huntedAt, pressure, pursuitStage, huntStage, liquidated, huntMargin,
     LIQUIDATOR_PIVOT, HUNT_SHIFT, HUNT_FLOOR, HUNT_CEILING,
     stability, stabilityBand,
     ANOMALY_SURCHARGE, ANOMALY_HEAT, eraStrain, anomalies, anomalyLabel,
@@ -1101,7 +1195,8 @@
     spent, credBalance, charge, bandAllows, availability, offers, clinicOffers,
     transitOffers,
     reputation, standing, patronFaction, dominantBloc, blocEpithet, FACTION_FLAVOR,
-    generateQuest, ENDINGS, flavoredEnding, isVictory, narrate, PROLOGUE,
+    generateQuest, ENDINGS, LIQUIDATED, flavoredEnding, endingBanner, isVictory,
+    narrate, PROLOGUE,
     operativeState, snapshot,
   };
 
