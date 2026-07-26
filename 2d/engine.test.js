@@ -289,12 +289,14 @@ check("Energy Creds price official services down and grey-market ones up", () =>
   assert.ok(E.bandAllows(scrub, "Watched") && !E.bandAllows(scrub, "Exemplar"));
   assert.deepStrictEqual(E.availability(boost, [], E.simulate([])), [true, ""]);
   assert.strictEqual(E.availability(boost, sunk, E.simulate(sunk))[0], false);
-  // Two boards, one service table: the market sells to the run, the clinic to
-  // the operative, and nothing may go missing from both.
+  // Three boards, one service table: the market sells to the run, the clinic to
+  // the operative, transit to the ground, and nothing may go missing from all.
   const world = E.simulate([]);
   assert.strictEqual(E.offers([], world).length, E.MARKET_SERVICES.length);
   assert.strictEqual(E.clinicOffers([], world).length, E.CLINIC_SERVICES.length);
-  assert.strictEqual(E.MARKET_SERVICES.length + E.CLINIC_SERVICES.length,
+  assert.strictEqual(E.transitOffers([], world).length, E.TRANSIT_SERVICES.length);
+  assert.strictEqual(
+    E.MARKET_SERVICES.length + E.CLINIC_SERVICES.length + E.TRANSIT_SERVICES.length,
     Object.keys(E.SERVICE_BY_ID).length);
 });
 
@@ -304,14 +306,17 @@ check("no dead content: every service is reachable on some legal timeline", () =
   // scrub was, at base 80). Walk the legal choice-tree and insist otherwise.
   // Purchases are part of the walk, not just jumps: the clinic's deep nodes are
   // only reachable *through* earlier purchases, and the chain has to fit inside
-  // one run's wallet or the bottom of the tree is dead content.
+  // one run's wallet or the bottom of the tree is dead content. Same for the
+  // maglev home: a ticket back to Kyiv is only offered to someone who already
+  // bought a ticket out of it.
   const reachable = new Set();
   let frontier = [[]];
   for (let depth = 0; depth < 5; depth++) {
     const bought = [], following = [];
     for (const tl of frontier) {
       const ws = E.simulate(tl);
-      for (const offer of E.offers(tl, ws).concat(E.clinicOffers(tl, ws)))
+      const board = E.offers(tl, ws).concat(E.clinicOffers(tl, ws), E.transitOffers(tl, ws));
+      for (const offer of board)
         if (offer.available) {
           reachable.add(offer.service.id);
           bought.push(tl.concat([E.CHOICE_BY_ID[offer.service.id]]));
@@ -455,6 +460,77 @@ check("augments buy modifiers to the systems they name, from the moment worn", (
     lifespan: E.lifespan(governed),
     augments: ["install_longevity_lattice", "install_neural_governor"],
   });
+});
+
+check("Smart Dust: the field, the weather grid and the zone trade", () => {
+  const id = (i) => E.CHOICE_BY_ID[i];
+  const PFC = id("protect_first_code"), FAR = id("full_ai_rights");
+  const RAR = id("restrict_ai_rights"), CDR = id("charter_data_rights");
+  const BOOST = id("buy_battery_boost");
+  const CARP = id("relocate_carpathians"), ODESA = id("relocate_odesa");
+  const KYIV = id("relocate_kyiv");
+
+  // The whole system is pivoted so an untouched run costs nothing: Kyiv's
+  // baseline sits in `dense`, which is worth zero heat and zero charge.
+  assert.strictEqual(E.currentZone([]), E.HOME_ZONE);
+  assert.strictEqual(E.dustBand(E.effectiveDensity("kyiv", [])), "dense");
+  assert.strictEqual(E.jumpExposure([]), 0);
+  assert.strictEqual(E.anchorSurcharge([]), 0);
+
+  // Only present-day actions advance the sky — a jump returns you to the
+  // moment you left, so it costs no weather.
+  assert.strictEqual(E.weatherPhase([PFC, FAR, RAR]), 0);
+  assert.strictEqual(E.weatherPhase([BOOST, PFC, BOOST]), 2);
+  assert.strictEqual(E.weather([])[0], "clear skies");
+  // Buying the ticket is itself an action, so relocating lands you under the
+  // inversion; the quiet window is one action further on.
+  assert.strictEqual(E.weather([CARP])[0], "thermal inversion");
+  assert.strictEqual(E.weather([CARP, BOOST])[0], "ion storm");
+
+  // Exactly one zone/phase pair reaches `swept`, and it takes two actions.
+  const swept = [];
+  for (let phase = 0; phase < E.WEATHER_CYCLE.length; phase++)
+    for (const zone of E.ZONES)
+      if (E.dustBand(E.effectiveDensity(zone, Array(phase).fill(BOOST))) === "swept")
+        swept.push([zone, phase]);
+  assert.deepStrictEqual(swept, [["carpathians", 2]]);
+
+  // Stealth is paid for in charge: the anchor is under Kyiv.
+  const quiet = [CARP, BOOST];
+  assert.strictEqual(E.jumpExposure(quiet), -3);
+  assert.ok(E.heat(quiet.concat([PFC])) < E.heat([PFC]));
+  assert.ok(E.jumpCost(2058, quiet) > E.jumpCost(2058, []));
+  assert.strictEqual(E.currentZone([CARP, ODESA, KYIV]), "kyiv");   // the last move wins
+
+  // The butterfly reaches the air: who watches whom was decided in the past.
+  assert.ok(E.dustDensity("kyiv", [PFC, id("abolish_precrime")]) < E.dustDensity("kyiv", []));
+  assert.ok(E.dustDensity("kyiv", [CDR]) < E.dustDensity("kyiv", []));
+  assert.strictEqual(E.dustBand(E.dustDensity("kyiv", [RAR, id("energy_cartel")])), "saturated");
+  for (const zone of E.ZONES)
+    for (const tl of [[], [RAR, id("energy_cartel")], [PFC, id("abolish_precrime"), CDR]]) {
+      assert.ok(E.dustDensity(zone, tl) >= 0 && E.dustDensity(zone, tl) <= 100);
+      assert.ok(E.effectiveDensity(zone, tl) >= 0 && E.effectiveDensity(zone, tl) <= 100);
+    }
+
+  // The field is read at the moment of the jump: a move made later cannot
+  // retroactively quieten an earlier one.
+  assert.strictEqual(E.heat([PFC].concat(quiet)), E.heat([PFC]));
+  assert.ok(E.heat([PFC, CARP, BOOST, FAR]) < E.heat([PFC, FAR]));
+
+  // The maglev prices every zone but the one you stand in, and moving Ukraine
+  // is not what a maglev does.
+  const world = E.simulate([]);
+  const home = E.transitOffers([], world).find((o) => o.service.id === "relocate_kyiv");
+  assert.strictEqual(home.reason, "you are already there");
+  assert.ok(E.transitOffers([CARP], E.simulate([CARP]))
+    .find((o) => o.service.id === "relocate_kyiv").available);
+  assert.deepStrictEqual(E.simulate([PFC, FAR].concat([CARP, ODESA])), E.simulate([PFC, FAR]));
+
+  const field = E.snapshot(quiet.concat([PFC])).operative;
+  assert.strictEqual(field.zone, "carpathians");
+  assert.strictEqual(field.dust.band, "swept");
+  assert.strictEqual(field.dust.weather, "ion storm");
+  assert.strictEqual(field.dust.anchor_surcharge, E.ZONE_ANCHOR.carpathians);
 });
 
 console.log(passed + " passed");

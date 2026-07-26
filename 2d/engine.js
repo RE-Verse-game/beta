@@ -216,10 +216,30 @@
     "The pod closes over you. Hours later the tremor is gone and the mirror looks like you again."
   );
 
+  // Relocations — the present-day entries that move the operative between the
+  // three flagship zones. The dust field and the fares live further down; these
+  // are only the log entries that carry a move.
+  const RELOCATE_KYIV = clinicAction(
+    "relocate_kyiv", "Ride the maglev to Kyiv",
+    "Return to the megacity — the Chronos anchor, and the thickest air in Canton.",
+    "The maglev drops you under Kyiv. The dust here is old and thorough; it knows you came back."
+  );
+  const RELOCATE_CARPATHIANS = clinicAction(
+    "relocate_carpathians", "Ride the maglev to the Carpathians",
+    "Go up into the mycelial uplands, where the seeding budget never reached.",
+    "The line climbs into the Mesh. Above the treeline the air stops listening, and the wormhole gets further away."
+  );
+  const RELOCATE_ODESA = clinicAction(
+    "relocate_odesa", "Ride the maglev to Odesa",
+    "Work out of the hydro-dome, instrumented where the cargo is and nowhere else.",
+    "The dome closes over the port. The dust here follows freight, not people — mostly."
+  );
+
   const PRESENT_ACTIONS = [
     LAY_LOW, BUY_BATTERY_BOOST, BUY_MESH_SCRUB,
     INSTALL_LONGEVITY_LATTICE, INSTALL_NEURAL_GOVERNOR, INSTALL_FUSION_WEAVE,
     INSTALL_CHRONO_MARROW, USE_RECOVERY_POD,
+    RELOCATE_KYIV, RELOCATE_CARPATHIANS, RELOCATE_ODESA,
   ];
 
   const CHOICE_BY_ID = {};
@@ -412,6 +432,94 @@
     return best;
   }
 
+  // ---- smart dust (surveillance field, mirrors reverse/dust.py) -----------
+  // Canton's air is instrumented. Sits before temporal because the field is
+  // what the heat analytics actually read, and before energy because the quiet
+  // zones sit far from the Chronos anchor and every jump pays for the distance.
+  const ZONES = ["kyiv", "carpathians", "odesa"];
+  const HOME_ZONE = "kyiv";
+  const ZONE_NAMES = {
+    kyiv: "Kyiv Megacity",
+    carpathians: "Carpathian Mesh",
+    odesa: "Odesa Hydro-Dome",
+  };
+  const BASELINE_DENSITY = { kyiv: 62, carpathians: 26, odesa: 41 };
+  // How the past re-seeds the field: these are the flags whose whole point was
+  // who gets to watch whom, so surveillance is where they land hardest.
+  const FLAG_DENSITY = {
+    precrime_abolished: -20, data_rights: -14, regrounded: -10,
+    orbital_solar: 8, looped_purged: 9, upload_commons: 10,
+    energy_cartel: 12, singularity: 16,
+  };
+  // Canton's weather programme: [label, density shift], one phase per
+  // present-day action. The order is the tuning — buying a maglev ticket is
+  // itself an action, so relocating and jumping straight away lands you under
+  // the inversion; the quiet window is one action further on.
+  const WEATHER_CYCLE = [
+    ["clear skies", 0], ["thermal inversion", 18], ["ion storm", -16], ["seeding rain", -6],
+  ];
+  // [lower bound, label, heat per jump]. Kyiv's baseline sits in `dense`, which
+  // is worth zero, so an untouched run is exactly as loud as it was before.
+  const DUST_BANDS = [
+    [70, "saturated", 3], [45, "dense", 0], [20, "thin", -1], [0, "swept", -3],
+  ];
+  const ZONE_ANCHOR = { kyiv: 0, odesa: 4, carpathians: 9 };
+  const ZONE_FARE = { kyiv: 10, odesa: 14, carpathians: 18 };
+  const RELOCATE_PREFIX = "relocate_";
+
+  const relocateId = (zone) => `${RELOCATE_PREFIX}${zone}`;
+  function zoneOf(choiceId) {
+    if (!choiceId.startsWith(RELOCATE_PREFIX)) return "";
+    const zone = choiceId.slice(RELOCATE_PREFIX.length);
+    return zone in ZONE_ANCHOR ? zone : "";
+  }
+  // Where the operative is standing now — the last relocation, or home.
+  function currentZone(timeline) {
+    let zone = HOME_ZONE;
+    for (const c of timeline) {
+      const moved = zoneOf(c.id);
+      if (moved) zone = moved;
+    }
+    return zone;
+  }
+  // One phase per present-day action: a jump returns you to the moment you
+  // left, so the only time that passes in 2226 is time spent in 2226.
+  function weatherPhase(timeline) {
+    let n = 0;
+    for (const c of timeline) if (c.era === PRESENT) n += 1;
+    return n % WEATHER_CYCLE.length;
+  }
+  const weather = (timeline) => WEATHER_CYCLE[weatherPhase(timeline)];
+  function forecast(timeline, ahead = 3) {
+    const start = weatherPhase(timeline), out = [];
+    for (let n = 1; n <= ahead; n += 1) out.push(WEATHER_CYCLE[(start + n) % WEATHER_CYCLE.length]);
+    return out;
+  }
+  function dustDensity(zone, timeline) {
+    let seeded = BASELINE_DENSITY[zone];
+    for (const f of accumulatedFlags(timeline)) seeded += FLAG_DENSITY[f] || 0;
+    return Math.max(0, Math.min(100, seeded));
+  }
+  const effectiveDensity = (zone, timeline) =>
+    Math.max(0, Math.min(100, dustDensity(zone, timeline) + weather(timeline)[1]));
+  function dustBand(value) {
+    for (const [t, label] of DUST_BANDS) if (value >= t) return label;
+    return "swept";
+  }
+  function bandHeat(value) {
+    for (const [t, , h] of DUST_BANDS) if (value >= t) return h;
+    return DUST_BANDS[DUST_BANDS.length - 1][2];
+  }
+  const jumpExposure = (timeline) => bandHeat(effectiveDensity(currentZone(timeline), timeline));
+  const anchorSurcharge = (timeline) => ZONE_ANCHOR[currentZone(timeline)];
+  const relocateReason = (zone, timeline) =>
+    (currentZone(timeline) === zone ? "you are already there" : "");
+  // The zone board: [zone, effective density, band, anchor surcharge].
+  const fieldReport = (timeline) => ZONES.map((z) => {
+    const reading = effectiveDensity(z, timeline);
+    return [z, reading, dustBand(reading), ZONE_ANCHOR[z]];
+  });
+
   // ---- temporal (heat + spacetime stability, mirrors reverse/temporal.py) --
   const HEAT_TIERS = [
     [38, "Liquidation Order"], [26, "Hunted"], [16, "Flagged"], [8, "Logged"], [0, "Unnoticed"],
@@ -465,11 +573,17 @@
   function heat(timeline) {
     let score = 0;
     const strain = {}, visits = {};
-    for (const c of jumps(timeline)) {
+    // Walked with its index rather than filtered down to jumps: a jump is as
+    // loud as the air it was launched through, and the field is read at that
+    // moment in the log (see the smart dust section).
+    for (let i = 0; i < timeline.length; i += 1) {
+      const c = timeline[i];
+      if (c.era === PRESENT) continue;
       // Severity of the tear already open in this era when the jump lands.
       const prior = strain[c.era] || 0;
       const severity = prior >= ANOMALY_AT ? 1 + floorDiv(prior - ANOMALY_AT, ANOMALY_STEP) : 0;
-      score += 4 + floorDiv(audacity(c), 15) + ANOMALY_HEAT * severity;
+      score += 4 + floorDiv(audacity(c), 15) + ANOMALY_HEAT * severity
+        + jumpExposure(timeline.slice(0, i));
       strain[c.era] = prior + BASE_STRAIN + REVISIT_STRAIN * (visits[c.era] || 0);
       visits[c.era] = (visits[c.era] || 0) + 1;
     }
@@ -609,9 +723,11 @@
   const divergenceDivisor = (timeline) =>
     hasAugment("install_chrono_marrow", timeline) ? MARROW_DIVISOR : DIVERGENCE_DIVISOR;
 
+  // The last term is where you launch from: the anchor is under Kyiv, so the
+  // quiet zones hold the wormhole throat open across more ground.
   const jumpCost = (era, timeline) =>
     BASE_COST + distanceCost(era) + floorDiv(divergence(timeline), divergenceDivisor(timeline))
-    + jumpSurcharge(era, timeline);
+    + jumpSurcharge(era, timeline) + anchorSurcharge(timeline);
 
   // Each jump priced at the divergence and scars that existed at that moment,
   // so a later edit cannot retroactively re-price an earlier jump.
@@ -704,8 +820,17 @@
       grey_market: false, min_band: null, max_band: null },
   ]);
 
+  // Maglev transit: what the same wallet buys for the *ground under your feet*.
+  // Built from the zone table so a fourth region would price itself. Official
+  // pricing, no band gate — Canton does not ration movement, it watches it.
+  const TRANSIT_SERVICES = ZONES.map((z) => ({
+    id: relocateId(z), name: `Maglev to ${ZONE_NAMES[z]}`, base_price: ZONE_FARE[z],
+    effect: `dust ${BASELINE_DENSITY[z]} baseline, +${ZONE_ANCHOR[z]} charge per jump`,
+    grey_market: false, min_band: null, max_band: null,
+  }));
+
   // Everything the wallet can be spent on — the ledger walks this, not a board.
-  const SERVICES = MARKET_SERVICES.concat(CLINIC_SERVICES);
+  const SERVICES = MARKET_SERVICES.concat(CLINIC_SERVICES).concat(TRANSIT_SERVICES);
   const SERVICE_BY_ID = {};
   for (const s of SERVICES) SERVICE_BY_ID[s.id] = s;
 
@@ -759,8 +884,14 @@
     return "";
   }
 
+  // Why a maglev ticket is pointless right now — you are already standing there.
+  function transitReason(service, timeline) {
+    const zone = zoneOf(service.id);
+    return zone ? relocateReason(zone, timeline) : "";
+  }
+
   function availability(service, timeline, ws) {
-    const blocked = bodyReason(service, timeline);
+    const blocked = bodyReason(service, timeline) || transitReason(service, timeline);
     if (blocked) return [false, blocked];
     const band = trustBand(trustMesh(timeline));
     if (!bandAllows(service, band)) {
@@ -780,6 +911,7 @@
   });
   const offers = (timeline, ws) => boardFor(MARKET_SERVICES, timeline, ws);
   const clinicOffers = (timeline, ws) => boardFor(CLINIC_SERVICES, timeline, ws);
+  const transitOffers = (timeline, ws) => boardFor(TRANSIT_SERVICES, timeline, ws);
 
   // ---- factions ----------------------------------------------------------
   const STANDINGS = [
@@ -882,6 +1014,16 @@
         lifespan: lifespan(timeline),
         augments: installed(timeline),
       },
+      // Where the operative is standing and what the air there is doing — the
+      // Smart Dust field, which prices the next jump twice.
+      zone: currentZone(timeline),
+      dust: {
+        density: effectiveDensity(currentZone(timeline), timeline),
+        band: dustBand(effectiveDensity(currentZone(timeline), timeline)),
+        weather: weather(timeline)[0],
+        forecast: forecast(timeline).map(([label]) => label),
+        anchor_surcharge: anchorSurcharge(timeline),
+      },
     };
   }
 
@@ -949,9 +1091,15 @@
     AUGMENTS, AUGMENT_BY_ID, installed, hasAugment, anomalyExposure, bioStrain,
     bioBand, bioTrustPenalty, lifespan, ceilingBonus, installReason, podReason,
     divergenceDivisor,
+    ZONES, HOME_ZONE, ZONE_NAMES, BASELINE_DENSITY, FLAG_DENSITY, WEATHER_CYCLE,
+    DUST_BANDS, ZONE_ANCHOR, ZONE_FARE, relocateId, zoneOf, currentZone,
+    weatherPhase, weather, forecast, dustDensity, effectiveDensity, dustBand,
+    bandHeat, jumpExposure, anchorSurcharge, relocateReason, fieldReport,
     CIVIC_ALLOWANCE, JUMP_DRAW, BOOST_CHARGE, BAND_MODIFIER, BAND_ORDER,
-    SERVICES, MARKET_SERVICES, CLINIC_SERVICES, SERVICE_BY_ID, allowance, price,
+    SERVICES, MARKET_SERVICES, CLINIC_SERVICES, TRANSIT_SERVICES, SERVICE_BY_ID,
+    allowance, price,
     spent, credBalance, charge, bandAllows, availability, offers, clinicOffers,
+    transitOffers,
     reputation, standing, patronFaction, dominantBloc, blocEpithet, FACTION_FLAVOR,
     generateQuest, ENDINGS, flavoredEnding, isVictory, narrate, PROLOGUE,
     operativeState, snapshot,
