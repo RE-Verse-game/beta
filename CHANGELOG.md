@@ -3,6 +3,29 @@
 All notable changes to the RE:Verse public browser beta are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.0.6] — 2026-07-26
+
+The Quantum Liquidators stop being a warning label — and the console gains its
+first way to *lose* (JS 34 tests, value-identical to Python and C#).
+
+### Added
+- **The Temporal Terrorist arc** — crossing the Temporal Heat threshold used to
+  print a warning and nothing else. Now a pursuit opens and tightens with
+  everything you do while it is running: a Chronos Jump under an active sweep is
+  a flare, a quiet day in 2226 is not, and the Smart Dust over your zone decides
+  how much of either the analytics actually see. Running for the swept air of
+  the Carpathians became a survival move, not just a discount on heat.
+- **The pursuit ladder** — Sweep → Cordon → Interception → Liquidation, shown
+  live under the heat readout. It only ever climbs on a run that buys no relief,
+  so you are warned three times before the end.
+- **Escape** — laying low and a grey-market Mesh scrub now shed *banked* pursuit
+  pressure, not just heat. A cordon is something you get out of on purpose,
+  paid for in standing and creds.
+- **A fail state** — at 30 pressure the squads land and the run is over. It
+  outranks the archetype: a perfect Solar Utopia you are not alive in is not a
+  victory, and the ending overlay says so in red. Rewind still releases the last
+  move; Reset still restores the continuum.
+
 ## [v0.0.5] — 2026-07-26
 
 Smart Dust — the console's engine gains the system that makes *where* you jump
@@ -141,4 +164,9 @@ anyone at <https://re-verse-game.github.io/beta/> with no install.
   same deterministic invariants (verified by `engine.test.js`).
 - This is a vertical slice of the core hook, not the full AAA game.
 
+[v0.0.6]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.6
+[v0.0.5]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.5
+[v0.0.4]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.4
+[v0.0.3]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.3
+[v0.0.2]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.2
 [v0.0.1]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.1
