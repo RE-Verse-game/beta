@@ -8,6 +8,7 @@ name: Console tests
 on:
   push:
     branches: ['**']
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -31,3 +32,8 @@ jobs:
         run: node 2d/engine.test.js
       - name: Syntax-check the front-end
         run: node --check 2d/app.js && node --check 2d/engine.js
+      # The badge, the changelog and the tag are three hand-maintained copies of
+      # one number, and they drifted apart once already (v0.0.4 shipped with a
+      # v0.0.3 badge). Cheap to check, so check it on every push and every tag.
+      - name: Check version metadata
+        run: bash scripts/check_version.sh

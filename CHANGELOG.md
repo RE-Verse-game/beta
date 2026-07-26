@@ -164,4 +164,9 @@ anyone at <https://re-verse-game.github.io/beta/> with no install.
   same deterministic invariants (verified by `engine.test.js`).
 - This is a vertical slice of the core hook, not the full AAA game.
 
+[v0.0.6]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.6
+[v0.0.5]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.5
+[v0.0.4]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.4
+[v0.0.3]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.3
+[v0.0.2]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.2
 [v0.0.1]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.1
