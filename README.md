@@ -55,10 +55,11 @@ Continuum** → **Chronos Jump** into an era → pick a choice → watch 2226's 
 
 | Action | What it does |
 | --- | --- |
-| **⟲ Chronos Jump** | Travel to an era and change one thing (costs charge, rising per jump — plus a surcharge if you already tore that era open) |
+| **⟲ Chronos Jump** | Travel to an era and change one thing (the deeper the era the dearer the wormhole, and the louder you have already edited history the more every later jump costs — plus a surcharge if you tore that era open) |
 | **◈ Quest** | Generate a side-quest from the current world-state |
 | **◌ Lay low** | Go dark to shed Temporal Heat, paid for out of your Trust Mesh standing |
 | **⌬ Market** | Spend Energy Creds on a battery boost or a grey-market Mesh scrub — your standing sets the price |
+| **⚕ Bio-clinic** | Spend the same creds on yourself: a four-augment tree, each install leaving permanent bio-strain — enough of it and the Mesh stops reading you as baseline human. Recovery pods flush it back out |
 | **≡ Timeline** | Review every change you've made |
 | **↶ Rewind** | Undo your last change and release its energy |
 | **⟳ Reset** | Restore the pristine timeline and full charge |
@@ -123,8 +124,8 @@ Unity's **Compression Format → Disabled** so it serves from GitHub Pages.
 
 ## Changelog
 
-See **[CHANGELOG.md](CHANGELOG.md)**. Current release: **v0.0.3** — the Energy
-Creds market, anomaly zones and the bio-social split of 2226.
+See **[CHANGELOG.md](CHANGELOG.md)**. Current release: **v0.0.4** — emergent
+power blocs, quantum-battery v2 pricing and the bio-hacking clinic.
 
 ## About the full project
 
