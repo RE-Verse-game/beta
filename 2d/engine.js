@@ -424,7 +424,9 @@
     { id: "buy_battery_boost", name: "Fusion-grid battery boost", base_price: 40,
       effect: `+${BOOST_CHARGE} quantum charge`,
       grey_market: false, min_band: "Watched", max_band: null },
-    { id: "buy_mesh_scrub", name: "Grey-market Mesh scrub", base_price: 80,
+    // Priced so a scrub is reachable once you have heat worth scrubbing, but
+    // costs nearly the whole wallet — it hurts somewhere other than standing.
+    { id: "buy_mesh_scrub", name: "Grey-market Mesh scrub", base_price: 55,
       effect: "sheds Temporal Heat without spending trust",
       grey_market: true, min_band: null, max_band: "Trusted" },
   ];

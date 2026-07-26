@@ -200,6 +200,34 @@ check("Energy Creds price official services down and grey-market ones up", () =>
   assert.strictEqual(E.offers([], E.simulate([])).length, E.SERVICES.length);
 });
 
+check("no dead content: every service is reachable on some legal timeline", () => {
+  // Pricing and the wallet are tuned independently, so a service can end up
+  // priced out of every balance a player can actually reach (the grey-market
+  // scrub was, at base 80). Walk the legal choice-tree and insist otherwise.
+  const reachable = new Set();
+  let frontier = [[]];
+  for (let depth = 0; depth < 4; depth++) {
+    const following = [];
+    for (const tl of frontier) {
+      const ws = E.simulate(tl);
+      for (const offer of E.offers(tl, ws))
+        if (offer.available) reachable.add(offer.service.id);
+      for (const y of E.ERAS)
+        for (const c of E.availableChoices(y, tl)) following.push(tl.concat([c]));
+    }
+    frontier = following.slice(0, 300);   // breadth cap: the tree fans out fast
+  }
+  for (const id of Object.keys(E.SERVICE_BY_ID))
+    assert.ok(reachable.has(id), "unreachable service: " + id);
+
+  // And the scrub must stay a real sacrifice, not pocket change.
+  const tl = [E.CHOICE_BY_ID["protect_first_code"], E.CHOICE_BY_ID["full_ai_rights"]];
+  const ws = E.simulate(tl);
+  const before = E.credBalance(tl, ws);
+  assert.ok(E.price(E.SERVICE_BY_ID["buy_mesh_scrub"], tl) > Math.floor(before / 2));
+  assert.ok(E.credBalance(tl.concat([E.BUY_MESH_SCRUB]), ws) < Math.floor(before / 4));
+});
+
 check("purchases move charge and heat but never the world or the ledger's past", () => {
   const id = (i) => E.CHOICE_BY_ID[i];
   const PFC = id("protect_first_code"), FAR = id("full_ai_rights");
