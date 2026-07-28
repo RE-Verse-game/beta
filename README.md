@@ -23,6 +23,22 @@
 
 ---
 
+## Trailer
+
+**«Ціна утопії»** — the price of utopia. What the Butterfly Effect costs when
+the future you are trying to save is the one you keep unmaking.
+
+<p align="center">
+  <a href="https://re-verse-game.github.io/beta/media/re-verse-price-of-utopia.mp4">
+    <img src="media/trailer-poster.jpg" alt="RE:VERSE — «Ціна утопії» trailer" width="90%" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://re-verse-game.github.io/beta/media/re-verse-price-of-utopia.mp4"><b>▶ WATCH THE TRAILER</b></a>
+  &nbsp;·&nbsp; 1:54 &nbsp;·&nbsp; 720p &nbsp;·&nbsp; Ukrainian voice-over
+</p>
+
 ## What is this?
 
 You jump into Ukraine's past eras (**2058 · 2090 · 2150 · 2180**), make
@@ -117,7 +133,7 @@ index.html          # launcher — choose 2D or 3D
   app.js            #   DOM controller wiring the engine to the UI
   engine.test.js    #   Node sanity checks
 3d/                 # 3D first-person (Unity WebGL build — see 3d/README.md)
-media/              # key art (hero, poster, emblem)
+media/              # key art (hero, poster, emblem) + the trailer & its poster frame
 ```
 
 The 3D slice ships as a Unity **WebGL** export dropped into `3d/`. To build and
