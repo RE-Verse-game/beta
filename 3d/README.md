@@ -3,10 +3,19 @@
 This folder hosts the Unity WebGL export of the RE:Verse first-person slice.
 Until the build is added, `index.html` here is a "coming soon" placeholder.
 
+The shipped slice is a **greybox** — geometry composed from Unity primitives in
+C#, kept until the modular kit replaces it. It is not the target look.
+
 ## How to produce & drop in the build
 
-1. **Open the Unity project** `unity/RE-Verse-Unity/` (Unity 2021.3 LTS+ with
-   **WebGL Build Support**) and press Play once to confirm it runs.
+1. **Open the Unity project** `unity/RE-Verse-Unity/` (Unity **6.x LTS** with
+   **WebGL Build Support**), run **RE:Verse ▸ Configure URP** once, and press
+   Play to confirm it runs.
+
+   > The project is on **URP**. Two consequences for a WebGL build: the master
+   > shaders must be in the always-included list (`WebGLBuilder.cs` handles it —
+   > a stripped shader renders black, not an error), and once interiors are
+   > lightmapped, the bake ships in the build and the payload grows with it.
 
 2. **Player Settings → Publishing Settings — this is the critical part for
    GitHub Pages:**
