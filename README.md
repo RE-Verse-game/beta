@@ -52,7 +52,7 @@ This repository hosts the **browser vertical slice** — a self-contained,
 no-build front-end that runs the exact same deterministic decision engine as
 the full prototype (a faithful JS port of the Python/C# core).
 
-> This is a **playable beta**, not the final AAA game. It is the *core hook*,
+> This is a **playable beta**, not the finished game. It is the *core hook*,
 > distilled to something anyone can open and feel in under a minute.
 
 ## Play
@@ -63,7 +63,7 @@ launcher lets you pick how to play:
 | Mode | Link | Notes |
 | --- | --- | --- |
 | **2D Chronos Console** | [`/2d/`](https://re-verse-game.github.io/beta/2d/) | Full loop, instant load, works on mobile |
-| **3D First-Person** | [`/3d/`](https://re-verse-game.github.io/beta/3d/) | Unity WebGL — walk Kyiv-2226, press **E** at the terminal (desktop GPU recommended) |
+| **3D First-Person** | [`/3d/`](https://re-verse-game.github.io/beta/3d/) | Unity WebGL — walk a greybox district, press **E** at the terminal (desktop GPU recommended) |
 
 Both run the same shared engine. The 2D console: Prologue → **Enter the
 Continuum** → **Chronos Jump** into an era → pick a choice → watch 2226's metric
@@ -91,7 +91,8 @@ Continuum** → **Chronos Jump** into an era → pick a choice → watch 2226's 
   <img src="media/screenshot-launcher.png" alt="RE:Verse launcher — choose 2D or 3D" width="90%" />
 </p>
 
-**3D first-person slice** — walk a greybox Kyiv-2226, live HUD (archetype,
+**3D first-person slice** — walk a **greybox** district (primitives built in C#,
+not the target look — see *Art direction* below), live HUD (archetype,
 chrono-charge, metrics, factions), approach the Chronos Terminal and press **E**:
 
 <p align="center">
@@ -148,11 +149,27 @@ first fail state.
 
 ## About the full project
 
-RE:Verse is a first-person, open-world game set in a Ukrainian solarpunk /
-cyberpunk **2226**, built around an embedded **Chronos-LLM** that mutates a
-structured world-state from the choices you make in the past. Beyond this
-browser slice there is also a CLI prototype and a Unity first-person 3D slice
-(with a WebGL export), all sharing one engine.
+RE:Verse is a **stylized low-poly first-person game set in closed interiors** of
+a Ukrainian solarpunk / cyberpunk **2226**, built around an embedded
+**Chronos-LLM** that mutates a structured world-state from the choices you make
+in the past. Two to four hours of gameplay with high replayability, built by one
+part-time developer. Beyond this browser slice there is also a CLI prototype and
+a Unity first-person 3D slice (with a WebGL export), all sharing one engine.
+
+### Art direction
+
+Stylized low-poly with flat-shaded elements — a decision, not a downgrade. The
+look is carried by silhouette, colour and light: 40–60 modular kit pieces and
+15–20 hero props build the whole game, on Unity 6.x LTS + URP, with baked GI,
+2–4 real-time lights and a post stack (bloom, LUT grading, volumetric fog,
+vignette) doing roughly 70 % of the work.
+
+Not in this game: human faces, facial animation, open world, daylight exteriors.
+Characters are robots, drones and opaque-visor suits; the player sees hands and
+a tool. Third-party assets are **CC0 only**.
+
+The full art bible lives in the main repository:
+[`docs/GDD/08`](https://github.com/RE-Verse-game/web/blob/main/docs/GDD/08-Art-and-Audio-Direction.md).
 
 ## Credits &amp; license
 

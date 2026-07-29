@@ -3,6 +3,26 @@
 All notable changes to the RE:Verse public browser beta are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+Documentation only — the playable build is unchanged, so there is no version
+bump. What changed is what the documentation claims the game is.
+
+### Changed
+- **Art direction re-baseline (2226-15 pivot).** The project stopped describing
+  itself as a AAA photoreal open-world game and started describing what one
+  part-time developer can finish: **stylized low-poly with flat-shaded
+  elements**, closed interiors, Unity 6.x LTS + URP, 40–60 modular kit pieces
+  plus 15–20 hero props, baked GI with 2–4 real-time lights, and a post stack
+  carrying roughly 70 % of the look. No human faces, no facial animation, no
+  open world, no daylight exteriors; characters are robots, drones and
+  opaque-visor suits. Third-party assets are CC0 only.
+- The 3D slice is now labelled a **greybox** everywhere it appears. It always
+  was one — geometry composed from Unity primitives in C# — but the screenshots
+  were captioned as if they were the target look.
+- Launcher metadata says v0.0.6, matching the README badge and this file. The
+  page title had read v0.0.1 since the first release.
+
 ## [v0.0.6] — 2026-07-26
 
 The Quantum Liquidators stop being a warning label — and the console gains its
@@ -162,7 +182,7 @@ anyone at <https://re-verse-game.github.io/beta/> with no install.
 ### Notes
 - The browser engine is a faithful port of the Python/C# core and mirrors the
   same deterministic invariants (verified by `engine.test.js`).
-- This is a vertical slice of the core hook, not the full AAA game.
+- This is a vertical slice of the core hook, not the full game.
 
 [v0.0.6]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.6
 [v0.0.5]: https://github.com/RE-Verse-game/beta/releases/tag/v0.0.5
