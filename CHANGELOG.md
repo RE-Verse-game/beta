@@ -5,8 +5,26 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-Documentation only — the playable build is unchanged, so there is no version
-bump. What changed is what the documentation claims the game is.
+What the documentation claims the game is, and a 3D slice rebuilt to match it.
+The 2D console is untouched.
+
+### Added
+- **The 3D slice is rebuilt on URP.** The export in `3d/` was made before the
+  render-pipeline migration; it now ships with the pipeline the direction
+  actually calls for — the `RE:Verse/Stylized Lit` master shader (vertex colour,
+  faceted normals, rim light) and the post stack that carries roughly 70 % of
+  the look: bloom, ACES tonemapping, colour grading and vignette, re-graded per
+  ending archetype. The whole palette is locked to twelve colours plus the solar
+  gold accent, so what the timeline does to the mood is now a re-weighting of
+  one palette rather than eight sets of hand-picked colours.
+- Payload is 11 MB (was 6.9 MB): URP and the post stack cost roughly four
+  megabytes of shader variants, which is the price of the thing doing most of
+  the visual work.
+
+### Removed
+- The superseded `reverse-web.*` build files. They stopped being referenced the
+  moment the new export landed, and an unreferenced 6.9 MB in a repository whose
+  job is opening instantly is not a harmless leftover.
 
 ### Changed
 - **Art direction re-baseline (2226-15 pivot).** The project stopped describing
