@@ -99,6 +99,10 @@ chrono-charge, metrics, factions), approach the Chronos Terminal and press **E**
   <img src="media/screenshot-3d.png" alt="RE:Verse 3D first-person gameplay" width="90%" />
 </p>
 
+> This capture predates the URP rebuild, so it is missing the post stack — the
+> live build has bloom, colour grading and vignette doing most of the work.
+> Play it rather than trusting the picture; a fresh capture is owed.
+
 **Key art:**
 
 <p align="center">

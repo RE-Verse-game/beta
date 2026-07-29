@@ -21,3 +21,8 @@ tmp/
 .env
 .env.*
 !*.env.example
+
+# Unity drops this next to a WebGL export and names it after what to do with
+# it. It is Burst's debug symbols — useless to a player, and 100 KB of noise in
+# a repository whose whole job is being small enough to open instantly.
+*_BurstDebugInformation_DoNotShip/
